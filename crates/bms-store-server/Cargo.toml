@@ -1,0 +1,29 @@
+[package]
+name = "bms-store-server"
+version = "0.1.0"
+edition = "2021"
+description = "HTTP and WebSocket server for bms-store"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+bms-core = { path = "../bms-core" }
+bms-store-bridges = { path = "../bms-store-bridges" }
+bms-store-domain = { path = "../bms-store-domain" }
+bms-store-storage = { path = "../bms-store-storage" }
+jsonwebtoken = "9"
+rand = "0.8"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
+tower-http = { version = "0.6", features = ["cors", "trace", "fs"] }
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
+
+[features]
+default = []
+cloud = ["bms-store-storage/cloud"]

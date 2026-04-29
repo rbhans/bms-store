@@ -1,0 +1,26 @@
+[workspace]
+members = [
+    ".",
+    "crates/bms-core",
+    "crates/bms-store-domain",
+    "crates/bms-store-storage",
+    "crates/bms-store-bridges",
+    "crates/bms-store-server",
+    "crates/bms-store-client",
+]
+resolver = "2"
+
+[package]
+name = "bms-stored"
+version = "0.1.0"
+edition = "2021"
+description = "Standalone BMS data service daemon"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+bms-store-storage = { path = "crates/bms-store-storage" }
+bms-store-bridges = { path = "crates/bms-store-bridges" }
+bms-store-server = { path = "crates/bms-store-server" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

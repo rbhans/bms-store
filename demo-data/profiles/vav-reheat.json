@@ -1,0 +1,435 @@
+{
+  "profile": {
+    "id": "vav-reheat",
+    "name": "VAV Reheat Box",
+    "type": "vav",
+    "version": "1.0.0",
+    "description": "Variable air volume terminal unit with hot water reheat coil. Modulates airflow via damper and provides zone heating via reheat valve.",
+    "tags": [
+      "hvac",
+      "terminal-unit",
+      "vav",
+      "reheat",
+      "hot-water"
+    ]
+  },
+  "defaults": {
+    "protocols": {
+      "bacnet": {
+        "device_id": 200,
+        "device_name": "VAV-1",
+        "vendor_id": 555
+      }
+    }
+  },
+  "points": [
+    {
+      "id": "zone_temp",
+      "name": "Zone Temperature",
+      "description": "Zone temperature sensor",
+      "kind": "analog",
+      "access": "input",
+      "units": "\u00b0F",
+      "initial_value": 72.0,
+      "constraints": {
+        "min": 50,
+        "max": 100
+      },
+      "behavior": {
+        "type": "random-drift",
+        "noise": 0.3
+      },
+      "ui": {
+        "group": "Zone",
+        "color": "#e67e22",
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 1,
+          "object_name": "VAV-1.ZONE-TEMP",
+          "cov_increment": 0.5
+        }
+      }
+    },
+    {
+      "id": "zone_temp_sp",
+      "name": "Zone Temperature Setpoint",
+      "description": "Zone temperature setpoint",
+      "kind": "analog",
+      "access": "value",
+      "units": "\u00b0F",
+      "initial_value": 72.0,
+      "constraints": {
+        "min": 60,
+        "max": 85
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Zone",
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-value",
+          "instance": 1,
+          "object_name": "VAV-1.ZONE-TEMP-SP",
+          "priority": 12,
+          "cov_increment": 0.5
+        }
+      }
+    },
+    {
+      "id": "damper_pos",
+      "name": "Damper Position",
+      "description": "VAV damper actual position",
+      "kind": "analog",
+      "access": "output",
+      "units": "%",
+      "initial_value": 50.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "follows",
+        "source": "damper_cmd",
+        "lag_seconds": 15,
+        "noise": 0.5
+      },
+      "ui": {
+        "group": "Damper",
+        "precision": 0,
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-output",
+          "instance": 1,
+          "object_name": "VAV-1.DMPR-POS",
+          "priority": 12,
+          "cov_increment": 1.0
+        }
+      }
+    },
+    {
+      "id": "damper_cmd",
+      "name": "Damper Command",
+      "description": "VAV damper position command",
+      "kind": "analog",
+      "access": "value",
+      "units": "%",
+      "initial_value": 50.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Damper",
+        "precision": 0,
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-value",
+          "instance": 2,
+          "object_name": "VAV-1.DMPR-CMD",
+          "priority": 12,
+          "cov_increment": 1.0
+        }
+      }
+    },
+    {
+      "id": "reheat_vlv",
+      "name": "Reheat Valve Position",
+      "description": "Reheat valve actual position",
+      "kind": "analog",
+      "access": "output",
+      "units": "%",
+      "initial_value": 0.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "follows",
+        "source": "reheat_cmd",
+        "lag_seconds": 30,
+        "noise": 0.3
+      },
+      "ui": {
+        "group": "Reheat",
+        "precision": 0,
+        "trend": true,
+        "color": "#e74c3c"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-output",
+          "instance": 2,
+          "object_name": "VAV-1.RHT-VLV",
+          "priority": 12,
+          "cov_increment": 1.0
+        }
+      }
+    },
+    {
+      "id": "reheat_cmd",
+      "name": "Reheat Valve Command",
+      "description": "Reheat valve position command",
+      "kind": "analog",
+      "access": "value",
+      "units": "%",
+      "initial_value": 0.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Reheat",
+        "precision": 0,
+        "trend": true,
+        "color": "#e74c3c"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-value",
+          "instance": 3,
+          "object_name": "VAV-1.RHT-CMD",
+          "priority": 12,
+          "cov_increment": 1.0
+        }
+      }
+    },
+    {
+      "id": "airflow",
+      "name": "Zone Airflow",
+      "description": "Measured zone airflow",
+      "kind": "analog",
+      "access": "input",
+      "units": "CFM",
+      "initial_value": 500.0,
+      "constraints": {
+        "min": 0,
+        "max": 2000
+      },
+      "behavior": {
+        "type": "computed",
+        "expression": "airflow_max * (damper_pos / 100)",
+        "noise": 10,
+        "lag_seconds": 5
+      },
+      "ui": {
+        "group": "Airflow",
+        "precision": 0,
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 2,
+          "object_name": "VAV-1.AIRFLOW",
+          "cov_increment": 10
+        }
+      }
+    },
+    {
+      "id": "airflow_sp",
+      "name": "Airflow Setpoint",
+      "description": "Active airflow setpoint",
+      "kind": "analog",
+      "access": "value",
+      "units": "CFM",
+      "initial_value": 500.0,
+      "constraints": {
+        "min": 0,
+        "max": 2000
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Airflow",
+        "precision": 0,
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-value",
+          "instance": 4,
+          "object_name": "VAV-1.AIRFLOW-SP",
+          "priority": 12,
+          "cov_increment": 10
+        }
+      }
+    },
+    {
+      "id": "airflow_min",
+      "name": "Minimum Airflow",
+      "description": "Minimum airflow setpoint",
+      "kind": "analog",
+      "access": "value",
+      "units": "CFM",
+      "initial_value": 200.0,
+      "constraints": {
+        "min": 0,
+        "max": 2000
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Airflow",
+        "precision": 0
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-value",
+          "instance": 5,
+          "object_name": "VAV-1.AIRFLOW-MIN",
+          "priority": 12,
+          "cov_increment": 10
+        }
+      }
+    },
+    {
+      "id": "airflow_max",
+      "name": "Maximum Airflow",
+      "description": "Maximum airflow setpoint",
+      "kind": "analog",
+      "access": "value",
+      "units": "CFM",
+      "initial_value": 1000.0,
+      "constraints": {
+        "min": 0,
+        "max": 2000
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Airflow",
+        "precision": 0
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-value",
+          "instance": 6,
+          "object_name": "VAV-1.AIRFLOW-MAX",
+          "priority": 12,
+          "cov_increment": 10
+        }
+      }
+    },
+    {
+      "id": "occupied",
+      "name": "Occupancy Status",
+      "description": "Zone occupancy sensor status",
+      "kind": "binary",
+      "access": "input",
+      "initial_value": true,
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Zone"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "binary-input",
+          "instance": 1,
+          "object_name": "VAV-1.OCC"
+        }
+      }
+    },
+    {
+      "id": "occ_override",
+      "name": "Occupancy Override",
+      "description": "Manual occupancy override",
+      "kind": "binary",
+      "access": "value",
+      "initial_value": false,
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Zone"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "binary-value",
+          "instance": 1,
+          "object_name": "VAV-1.OCC-OVRD",
+          "priority": 8
+        }
+      }
+    },
+    {
+      "id": "dat",
+      "name": "Discharge Air Temp",
+      "description": "Discharge air temperature sensor",
+      "kind": "analog",
+      "access": "input",
+      "units": "\u00b0F",
+      "initial_value": 55.0,
+      "constraints": {
+        "min": 40,
+        "max": 120
+      },
+      "behavior": {
+        "type": "random-drift",
+        "noise": 0.3
+      },
+      "ui": {
+        "group": "Discharge",
+        "color": "#2ecc71",
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 3,
+          "object_name": "VAV-1.DAT",
+          "cov_increment": 0.5
+        }
+      }
+    },
+    {
+      "id": "box_size",
+      "name": "Box Size",
+      "description": "VAV box rated capacity",
+      "kind": "analog",
+      "access": "value",
+      "units": "CFM",
+      "initial_value": 1000.0,
+      "constraints": {
+        "min": 0,
+        "max": 5000
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Configuration",
+        "precision": 0
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-value",
+          "instance": 7,
+          "object_name": "VAV-1.BOX-SIZE",
+          "cov_increment": 10
+        }
+      }
+    }
+  ]
+}

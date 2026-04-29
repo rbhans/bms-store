@@ -1,0 +1,20 @@
+[package]
+name = "bms-store-client"
+version = "0.1.0"
+edition = "2021"
+description = "Rust client SDK for the bms-store API"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+bms-core = { path = "../bms-core" }
+bms-store-domain = { path = "../bms-store-domain" }
+futures-util = "0.3"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["sync", "time"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+
+[dev-dependencies]
+wiremock = "0.6"

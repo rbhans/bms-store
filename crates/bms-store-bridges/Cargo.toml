@@ -1,0 +1,38 @@
+[package]
+name = "bms-store-bridges"
+version = "0.1.0"
+edition = "2021"
+description = "Protocol bridges and discovery adapters for bms-store"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+bms-core = { path = "../bms-core" }
+bms-store-domain = { path = "../bms-store-domain" }
+bms-store-storage = { path = "../bms-store-storage" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
+thiserror = "2"
+futures = "0.3"
+tracing = "0.1"
+rustbac-core = "0.4"
+rustbac-client = "0.4"
+rustbac-datalink = "0.4"
+rustbac-bacnet-sc = "0.4"
+rustbac-mstp = "0.4"
+rustmod-core = "0.2"
+rustmod-client = "0.2"
+rustmod-datalink = { version = "0.2", features = ["rtu"] }
+uuid = { version = "1", features = ["v4"] }
+flate2 = "1"
+tar = "0.4"
+toml = "0.9"
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+default = []
+atlas = ["bms-store-storage/atlas"]

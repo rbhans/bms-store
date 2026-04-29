@@ -1,0 +1,193 @@
+{
+  "profile": {
+    "id": "generic-power-meter",
+    "name": "Generic Power Meter",
+    "type": "generic",
+    "version": "1.0.0",
+    "description": "Common Modbus power meter registers (voltage, current, power, energy). Compatible with most power meters using IEEE float registers.",
+    "manufacturer": null,
+    "model": null,
+    "tags": ["power", "meter", "electrical"]
+  },
+  "defaults": {
+    "protocols": {
+      "modbus": {
+        "unit_id": 1,
+        "response_timeout_ms": 5000,
+        "retry_count": 3
+      }
+    }
+  },
+  "points": [
+    {
+      "id": "voltage-l1",
+      "name": "Voltage L1",
+      "description": "Line 1 voltage",
+      "kind": "analog",
+      "access": "input",
+      "units": "V",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 0,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "voltage-l2",
+      "name": "Voltage L2",
+      "description": "Line 2 voltage",
+      "kind": "analog",
+      "access": "input",
+      "units": "V",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 2,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "voltage-l3",
+      "name": "Voltage L3",
+      "description": "Line 3 voltage",
+      "kind": "analog",
+      "access": "input",
+      "units": "V",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 4,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "current-l1",
+      "name": "Current L1",
+      "description": "Line 1 current",
+      "kind": "analog",
+      "access": "input",
+      "units": "A",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 6,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "current-l2",
+      "name": "Current L2",
+      "description": "Line 2 current",
+      "kind": "analog",
+      "access": "input",
+      "units": "A",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 8,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "current-l3",
+      "name": "Current L3",
+      "description": "Line 3 current",
+      "kind": "analog",
+      "access": "input",
+      "units": "A",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 10,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "total-active-power",
+      "name": "Total Active Power",
+      "description": "Total active power (3-phase sum)",
+      "kind": "analog",
+      "access": "input",
+      "units": "kW",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 12,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "total-energy",
+      "name": "Total Energy",
+      "description": "Accumulated total active energy",
+      "kind": "analog",
+      "access": "input",
+      "units": "kWh",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 342,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "power-factor",
+      "name": "Power Factor",
+      "description": "Total power factor",
+      "kind": "analog",
+      "access": "input",
+      "units": "PF",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 30,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "frequency",
+      "name": "Frequency",
+      "description": "Line frequency",
+      "kind": "analog",
+      "access": "input",
+      "units": "Hz",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 70,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    }
+  ]
+}

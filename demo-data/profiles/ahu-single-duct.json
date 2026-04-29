@@ -1,0 +1,1246 @@
+{
+  "profile": {
+    "id": "ahu-single-duct",
+    "name": "Single Duct AHU",
+    "type": "ahu",
+    "version": "1.0.0",
+    "description": "Single duct air handling unit with mixed air section, cooling coil, heating coil, supply fan with VFD, and return fan. Designed to serve VAV terminal units.",
+    "tags": [
+      "hvac",
+      "air-handling",
+      "single-duct",
+      "vav",
+      "cooling-coil",
+      "heating-coil",
+      "vfd"
+    ]
+  },
+  "defaults": {
+    "protocols": {
+      "bacnet": {
+        "device_id": 100,
+        "device_name": "AHU-1",
+        "vendor_id": 555
+      },
+      "modbus": {
+        "unit_id": 1,
+        "byte_order": "big-endian",
+        "word_order": "big-endian"
+      }
+    }
+  },
+  "points": [
+    {
+      "id": "sf_status",
+      "name": "Supply Fan Status",
+      "description": "Supply fan run status from current sensor",
+      "kind": "binary",
+      "access": "input",
+      "initial_value": true,
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Supply Fan",
+        "trend": true
+      },
+      "history": {
+        "mode": "cov",
+        "cov_threshold": 0.5
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "binary-input",
+          "instance": 1,
+          "object_name": "AHU-1.SF-STATUS"
+        },
+        "modbus": {
+          "register_type": "discrete-input",
+          "address": 0,
+          "data_type": "bool"
+        }
+      }
+    },
+    {
+      "id": "sf_cmd",
+      "name": "Supply Fan Command",
+      "description": "Supply fan start/stop command",
+      "kind": "binary",
+      "access": "output",
+      "initial_value": true,
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Supply Fan"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "binary-output",
+          "instance": 1,
+          "object_name": "AHU-1.SF-CMD",
+          "priority": 12
+        },
+        "modbus": {
+          "register_type": "coil",
+          "address": 0,
+          "data_type": "bool"
+        }
+      }
+    },
+    {
+      "id": "sf_spd_cmd",
+      "name": "Supply Fan Speed Command",
+      "description": "Supply fan VFD speed command",
+      "kind": "analog",
+      "access": "output",
+      "units": "%",
+      "initial_value": 75.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Supply Fan",
+        "precision": 0,
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-output",
+          "instance": 1,
+          "object_name": "AHU-1.SF-SPD-CMD",
+          "priority": 12,
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "holding",
+          "address": 0,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "sf_spd_fbk",
+      "name": "Supply Fan Speed Feedback",
+      "description": "Actual fan speed from VFD",
+      "kind": "analog",
+      "access": "input",
+      "units": "%",
+      "initial_value": 75.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "follows",
+        "source": "sf_spd_cmd",
+        "lag_seconds": 5,
+        "noise": 0.5
+      },
+      "ui": {
+        "group": "Supply Fan",
+        "precision": 0,
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 1,
+          "object_name": "AHU-1.SF-SPD-FBK",
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 0,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "rf_status",
+      "name": "Return Fan Status",
+      "description": "Return fan run status from current sensor",
+      "kind": "binary",
+      "access": "input",
+      "initial_value": true,
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Return Fan"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "binary-input",
+          "instance": 2,
+          "object_name": "AHU-1.RF-STATUS"
+        },
+        "modbus": {
+          "register_type": "discrete-input",
+          "address": 1,
+          "data_type": "bool"
+        }
+      }
+    },
+    {
+      "id": "rf_cmd",
+      "name": "Return Fan Command",
+      "description": "Return fan start/stop command",
+      "kind": "binary",
+      "access": "output",
+      "initial_value": true,
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Return Fan"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "binary-output",
+          "instance": 2,
+          "object_name": "AHU-1.RF-CMD",
+          "priority": 12
+        },
+        "modbus": {
+          "register_type": "coil",
+          "address": 1,
+          "data_type": "bool"
+        }
+      }
+    },
+    {
+      "id": "rf_spd_cmd",
+      "name": "Return Fan Speed Command",
+      "description": "Return fan VFD speed command",
+      "kind": "analog",
+      "access": "output",
+      "units": "%",
+      "initial_value": 70.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Return Fan",
+        "precision": 0
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-output",
+          "instance": 2,
+          "object_name": "AHU-1.RF-SPD-CMD",
+          "priority": 12,
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "holding",
+          "address": 2,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "rf_spd_fbk",
+      "name": "Return Fan Speed Feedback",
+      "description": "Actual return fan speed from VFD",
+      "kind": "analog",
+      "access": "input",
+      "units": "%",
+      "initial_value": 70.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "follows",
+        "source": "rf_spd_cmd",
+        "lag_seconds": 5,
+        "noise": 0.5
+      },
+      "ui": {
+        "group": "Return Fan",
+        "precision": 0
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 2,
+          "object_name": "AHU-1.RF-SPD-FBK",
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 2,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "oat",
+      "name": "Outdoor Air Temp",
+      "description": "Outside air temperature sensor at intake",
+      "kind": "analog",
+      "access": "input",
+      "units": "\u00b0F",
+      "initial_value": 85.0,
+      "constraints": {
+        "min": -20,
+        "max": 120
+      },
+      "behavior": {
+        "type": "daily-curve",
+        "curve": {
+          "min": 72,
+          "max": 95,
+          "peak_hour": 15
+        },
+        "noise": 0.3
+      },
+      "ui": {
+        "group": "Mixed Air",
+        "color": "#e67e22",
+        "trend": true
+      },
+      "history": {
+        "mode": "interval",
+        "interval_secs": 300,
+        "cov_threshold": 0.5
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 3,
+          "object_name": "AHU-1.OAT",
+          "cov_increment": 0.5
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 4,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "rat",
+      "name": "Return Air Temp",
+      "description": "Return air temperature sensor",
+      "kind": "analog",
+      "access": "input",
+      "units": "\u00b0F",
+      "initial_value": 74.0,
+      "constraints": {
+        "min": 50,
+        "max": 90
+      },
+      "behavior": {
+        "type": "random-drift",
+        "noise": 0.5
+      },
+      "ui": {
+        "group": "Mixed Air",
+        "color": "#9b59b6",
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 4,
+          "object_name": "AHU-1.RAT",
+          "cov_increment": 0.5
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 6,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "mat",
+      "name": "Mixed Air Temp",
+      "description": "Mixed air temperature sensor after mixing box",
+      "kind": "analog",
+      "access": "input",
+      "units": "\u00b0F",
+      "initial_value": 78.0,
+      "constraints": {
+        "min": 0,
+        "max": 120
+      },
+      "behavior": {
+        "type": "computed",
+        "expression": "(oat * (oa_dmpr_pos / 100)) + (rat * (1 - (oa_dmpr_pos / 100)))",
+        "noise": 0.3,
+        "lag_seconds": 15
+      },
+      "ui": {
+        "group": "Mixed Air",
+        "color": "#f39c12",
+        "trend": true
+      },
+      "history": {
+        "mode": "interval",
+        "interval_secs": 300,
+        "cov_threshold": 0.5
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 5,
+          "object_name": "AHU-1.MAT",
+          "cov_increment": 0.5
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 8,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "oa_dmpr_cmd",
+      "name": "Outdoor Air Damper Command",
+      "description": "Outdoor air damper position command",
+      "kind": "analog",
+      "access": "output",
+      "units": "%",
+      "initial_value": 20.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Dampers",
+        "precision": 0,
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-output",
+          "instance": 3,
+          "object_name": "AHU-1.OA-DMPR-CMD",
+          "priority": 12,
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "holding",
+          "address": 4,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "oa_dmpr_pos",
+      "name": "Outdoor Air Damper Position",
+      "description": "Outdoor air damper actual position feedback",
+      "kind": "analog",
+      "access": "input",
+      "units": "%",
+      "initial_value": 20.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "follows",
+        "source": "oa_dmpr_cmd",
+        "lag_seconds": 45,
+        "noise": 0.5
+      },
+      "ui": {
+        "group": "Dampers",
+        "precision": 0,
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 6,
+          "object_name": "AHU-1.OA-DMPR-POS",
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 10,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "ra_dmpr_cmd",
+      "name": "Return Air Damper Command",
+      "description": "Return air damper position command",
+      "kind": "analog",
+      "access": "output",
+      "units": "%",
+      "initial_value": 80.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "inverse-follows",
+        "source": "oa_dmpr_cmd"
+      },
+      "ui": {
+        "group": "Dampers",
+        "precision": 0
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-output",
+          "instance": 4,
+          "object_name": "AHU-1.RA-DMPR-CMD",
+          "priority": 12,
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "holding",
+          "address": 6,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "ra_dmpr_pos",
+      "name": "Return Air Damper Position",
+      "description": "Return air damper actual position feedback",
+      "kind": "analog",
+      "access": "input",
+      "units": "%",
+      "initial_value": 80.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "follows",
+        "source": "ra_dmpr_cmd",
+        "lag_seconds": 45,
+        "noise": 0.5
+      },
+      "ui": {
+        "group": "Dampers",
+        "precision": 0
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 7,
+          "object_name": "AHU-1.RA-DMPR-POS",
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 12,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "clg_vlv_cmd",
+      "name": "Cooling Valve Command",
+      "description": "Chilled water cooling coil valve command",
+      "kind": "analog",
+      "access": "output",
+      "units": "%",
+      "initial_value": 45.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Cooling",
+        "precision": 0,
+        "trend": true,
+        "color": "#3498db"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-output",
+          "instance": 5,
+          "object_name": "AHU-1.CLG-VLV-CMD",
+          "priority": 12,
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "holding",
+          "address": 8,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "clg_vlv_pos",
+      "name": "Cooling Valve Position",
+      "description": "Actual cooling valve position feedback",
+      "kind": "analog",
+      "access": "input",
+      "units": "%",
+      "initial_value": 45.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "follows",
+        "source": "clg_vlv_cmd",
+        "lag_seconds": 60,
+        "noise": 0.3
+      },
+      "ui": {
+        "group": "Cooling",
+        "precision": 0
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 8,
+          "object_name": "AHU-1.CLG-VLV-POS",
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 14,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "htg_vlv_cmd",
+      "name": "Heating Valve Command",
+      "description": "Hot water heating coil valve command",
+      "kind": "analog",
+      "access": "output",
+      "units": "%",
+      "initial_value": 0.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Heating",
+        "precision": 0,
+        "trend": true,
+        "color": "#e74c3c"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-output",
+          "instance": 6,
+          "object_name": "AHU-1.HTG-VLV-CMD",
+          "priority": 12,
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "holding",
+          "address": 10,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "htg_vlv_pos",
+      "name": "Heating Valve Position",
+      "description": "Actual heating valve position feedback",
+      "kind": "analog",
+      "access": "input",
+      "units": "%",
+      "initial_value": 0.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "follows",
+        "source": "htg_vlv_cmd",
+        "lag_seconds": 60,
+        "noise": 0.3
+      },
+      "ui": {
+        "group": "Heating",
+        "precision": 0
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 9,
+          "object_name": "AHU-1.HTG-VLV-POS",
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 16,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "dat",
+      "name": "Discharge Air Temp",
+      "description": "Supply/discharge air temperature after coils",
+      "kind": "analog",
+      "access": "input",
+      "units": "\u00b0F",
+      "initial_value": 55.0,
+      "constraints": {
+        "min": 40,
+        "max": 100
+      },
+      "behavior": {
+        "type": "computed",
+        "expression": "mat - (clg_vlv_pos * 0.25) + (htg_vlv_pos * 0.20)",
+        "noise": 0.2,
+        "lag_seconds": 30
+      },
+      "ui": {
+        "group": "Discharge",
+        "color": "#2ecc71",
+        "trend": true
+      },
+      "history": {
+        "mode": "interval",
+        "interval_secs": 300,
+        "cov_threshold": 0.5
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 10,
+          "object_name": "AHU-1.DAT",
+          "cov_increment": 0.5
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 18,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "dat_sp",
+      "name": "Discharge Air Temp Setpoint",
+      "description": "Discharge air temperature setpoint",
+      "kind": "analog",
+      "access": "value",
+      "units": "\u00b0F",
+      "initial_value": 55.0,
+      "constraints": {
+        "min": 45,
+        "max": 70
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Discharge",
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-value",
+          "instance": 1,
+          "object_name": "AHU-1.DAT-SP",
+          "priority": 12,
+          "cov_increment": 0.5
+        },
+        "modbus": {
+          "register_type": "holding",
+          "address": 12,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "sa_press",
+      "name": "Supply Air Duct Pressure",
+      "description": "Duct static pressure sensor in supply duct",
+      "kind": "analog",
+      "access": "input",
+      "units": "in-wc",
+      "initial_value": 1.5,
+      "constraints": {
+        "min": 0,
+        "max": 4.0
+      },
+      "behavior": {
+        "type": "computed",
+        "expression": "sf_spd_fbk * 0.025",
+        "noise": 0.05,
+        "lag_seconds": 5
+      },
+      "ui": {
+        "group": "Discharge",
+        "precision": 2,
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 11,
+          "object_name": "AHU-1.SA-PRESS",
+          "cov_increment": 0.1
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 20,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "sa_press_sp",
+      "name": "Supply Air Duct Pressure Setpoint",
+      "description": "Duct static pressure setpoint",
+      "kind": "analog",
+      "access": "value",
+      "units": "in-wc",
+      "initial_value": 1.5,
+      "constraints": {
+        "min": 0.5,
+        "max": 3.0
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Discharge",
+        "precision": 2
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-value",
+          "instance": 2,
+          "object_name": "AHU-1.SA-PRESS-SP",
+          "priority": 12,
+          "cov_increment": 0.1
+        },
+        "modbus": {
+          "register_type": "holding",
+          "address": 14,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "filter_dp",
+      "name": "Filter Differential Pressure",
+      "description": "Pressure drop across filter bank",
+      "kind": "analog",
+      "access": "input",
+      "units": "in-wc",
+      "initial_value": 0.45,
+      "constraints": {
+        "min": 0,
+        "max": 2.0
+      },
+      "behavior": {
+        "type": "random-drift",
+        "noise": 0.02
+      },
+      "ui": {
+        "group": "Filter",
+        "precision": 2
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 12,
+          "object_name": "AHU-1.FLTR-DP",
+          "cov_increment": 0.05
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 22,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "filter_alarm",
+      "name": "Filter Dirty Alarm",
+      "description": "High filter differential pressure alarm",
+      "kind": "binary",
+      "access": "input",
+      "initial_value": false,
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Filter"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "binary-input",
+          "instance": 3,
+          "object_name": "AHU-1.FLTR-ALM"
+        },
+        "modbus": {
+          "register_type": "discrete-input",
+          "address": 2,
+          "data_type": "bool"
+        }
+      }
+    },
+    {
+      "id": "freeze_stat",
+      "name": "Freeze Stat Status",
+      "description": "Low limit freeze protection thermostat",
+      "kind": "binary",
+      "access": "input",
+      "initial_value": false,
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Safety"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "binary-input",
+          "instance": 4,
+          "object_name": "AHU-1.FREEZE-STAT"
+        },
+        "modbus": {
+          "register_type": "discrete-input",
+          "address": 3,
+          "data_type": "bool"
+        }
+      }
+    },
+    {
+      "id": "smoke_det",
+      "name": "Duct Smoke Detector",
+      "description": "Supply duct smoke detector status",
+      "kind": "binary",
+      "access": "input",
+      "initial_value": false,
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Safety"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "binary-input",
+          "instance": 5,
+          "object_name": "AHU-1.SMOKE-DET"
+        },
+        "modbus": {
+          "register_type": "discrete-input",
+          "address": 4,
+          "data_type": "bool"
+        }
+      }
+    },
+    {
+      "id": "occ_mode",
+      "name": "Occupancy Mode",
+      "description": "Current occupancy schedule mode",
+      "kind": "multistate",
+      "access": "value",
+      "initial_value": 1,
+      "constraints": {
+        "states": {
+          "1": "Occupied",
+          "2": "Unoccupied",
+          "3": "Standby",
+          "4": "Warmup"
+        }
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Schedule"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "multistate-value",
+          "instance": 1,
+          "object_name": "AHU-1.OCC-MODE"
+        },
+        "modbus": {
+          "register_type": "holding",
+          "address": 16,
+          "data_type": "uint16"
+        }
+      }
+    },
+    {
+      "id": "occ_sched",
+      "name": "Occupancy Schedule Override",
+      "description": "Manual override of occupancy schedule",
+      "kind": "multistate",
+      "access": "value",
+      "initial_value": 1,
+      "constraints": {
+        "states": {
+          "1": "Auto",
+          "2": "Force Occupied",
+          "3": "Force Unoccupied"
+        }
+      },
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "Schedule"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "multistate-value",
+          "instance": 2,
+          "object_name": "AHU-1.OCC-SCHED-OVRD",
+          "priority": 8
+        },
+        "modbus": {
+          "register_type": "holding",
+          "address": 17,
+          "data_type": "uint16"
+        }
+      }
+    },
+    {
+      "id": "sys_enable",
+      "name": "System Enable",
+      "description": "AHU system enable/disable",
+      "kind": "binary",
+      "access": "value",
+      "initial_value": true,
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "System"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "binary-value",
+          "instance": 1,
+          "object_name": "AHU-1.SYS-ENABLE",
+          "priority": 8
+        },
+        "modbus": {
+          "register_type": "coil",
+          "address": 2,
+          "data_type": "bool"
+        }
+      }
+    },
+    {
+      "id": "alarm_active",
+      "name": "Active Alarm",
+      "description": "Any active alarm on this unit",
+      "kind": "binary",
+      "access": "input",
+      "initial_value": false,
+      "behavior": {
+        "type": "static"
+      },
+      "ui": {
+        "group": "System"
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "binary-input",
+          "instance": 6,
+          "object_name": "AHU-1.ALARM"
+        },
+        "modbus": {
+          "register_type": "discrete-input",
+          "address": 5,
+          "data_type": "bool"
+        }
+      }
+    },
+    {
+      "id": "sa_cfm",
+      "name": "Supply Airflow",
+      "description": "Calculated supply air volume flow rate",
+      "kind": "analog",
+      "access": "input",
+      "units": "cfm",
+      "initial_value": 12000,
+      "constraints": {
+        "min": 0,
+        "max": 20000
+      },
+      "behavior": {
+        "type": "computed",
+        "expression": "sf_spd_fbk * 180",
+        "noise": 50,
+        "lag_seconds": 5
+      },
+      "ui": {
+        "group": "Discharge",
+        "precision": 0,
+        "trend": true
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 13,
+          "object_name": "AHU-1.SA-CFM",
+          "cov_increment": 100
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 24,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "ra_cfm",
+      "name": "Return Airflow",
+      "description": "Calculated return air volume flow rate",
+      "kind": "analog",
+      "access": "input",
+      "units": "cfm",
+      "initial_value": 11000,
+      "constraints": {
+        "min": 0,
+        "max": 20000
+      },
+      "behavior": {
+        "type": "computed",
+        "expression": "rf_spd_fbk * 165",
+        "noise": 50,
+        "lag_seconds": 5
+      },
+      "ui": {
+        "group": "Return Fan",
+        "precision": 0
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 14,
+          "object_name": "AHU-1.RA-CFM",
+          "cov_increment": 100
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 26,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "oah",
+      "name": "Outdoor Air Humidity",
+      "description": "Outside air relative humidity sensor",
+      "kind": "analog",
+      "access": "input",
+      "units": "%RH",
+      "initial_value": 55.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "daily-curve",
+        "curve": {
+          "min": 40,
+          "max": 75,
+          "peak_hour": 5
+        },
+        "noise": 1.0
+      },
+      "ui": {
+        "group": "Mixed Air",
+        "precision": 0
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 15,
+          "object_name": "AHU-1.OAH",
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 28,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "rah",
+      "name": "Return Air Humidity",
+      "description": "Return air relative humidity sensor",
+      "kind": "analog",
+      "access": "input",
+      "units": "%RH",
+      "initial_value": 48.0,
+      "constraints": {
+        "min": 0,
+        "max": 100
+      },
+      "behavior": {
+        "type": "random-drift",
+        "noise": 1.0
+      },
+      "ui": {
+        "group": "Mixed Air",
+        "precision": 0
+      },
+      "protocols": {
+        "bacnet": {
+          "object_type": "analog-input",
+          "instance": 16,
+          "object_name": "AHU-1.RAH",
+          "cov_increment": 1.0
+        },
+        "modbus": {
+          "register_type": "input",
+          "address": 30,
+          "data_type": "float32",
+          "register_count": 2
+        }
+      }
+    }
+  ]
+}

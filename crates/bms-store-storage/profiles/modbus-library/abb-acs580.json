@@ -1,0 +1,191 @@
+{
+  "profile": {
+    "id": "abb-acs580",
+    "name": "ABB ACS580 VFD",
+    "type": "generic",
+    "version": "1.0.0",
+    "description": "ABB ACS580 Variable Frequency Drive. Registers per ABB Modbus register map for ACS580.",
+    "manufacturer": "ABB",
+    "model": "ACS580",
+    "tags": ["vfd", "drive", "motor", "abb"]
+  },
+  "defaults": {
+    "protocols": {
+      "modbus": {
+        "unit_id": 1,
+        "response_timeout_ms": 5000,
+        "retry_count": 3
+      }
+    }
+  },
+  "points": [
+    {
+      "id": "speed-reference",
+      "name": "Speed Reference",
+      "description": "Speed reference setpoint",
+      "kind": "analog",
+      "access": "output",
+      "units": "%",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 1,
+          "data_type": "int16",
+          "scale": 0.1,
+          "register_count": 1
+        }
+      }
+    },
+    {
+      "id": "control-word",
+      "name": "Control Word",
+      "description": "Drive control word (start/stop/direction)",
+      "kind": "multistate",
+      "access": "output",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 0,
+          "data_type": "uint16",
+          "scale": 1.0,
+          "register_count": 1
+        }
+      }
+    },
+    {
+      "id": "status-word",
+      "name": "Status Word",
+      "description": "Drive status word",
+      "kind": "multistate",
+      "access": "input",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 3,
+          "data_type": "uint16",
+          "scale": 1.0,
+          "register_count": 1
+        }
+      }
+    },
+    {
+      "id": "output-frequency",
+      "name": "Output Frequency",
+      "description": "Actual output frequency to motor",
+      "kind": "analog",
+      "access": "input",
+      "units": "Hz",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 5,
+          "data_type": "int16",
+          "scale": 0.1,
+          "register_count": 1
+        }
+      }
+    },
+    {
+      "id": "motor-speed",
+      "name": "Motor Speed",
+      "description": "Actual motor speed",
+      "kind": "analog",
+      "access": "input",
+      "units": "rpm",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 6,
+          "data_type": "int16",
+          "scale": 1.0,
+          "register_count": 1
+        }
+      }
+    },
+    {
+      "id": "motor-current",
+      "name": "Motor Current",
+      "description": "Actual motor current",
+      "kind": "analog",
+      "access": "input",
+      "units": "A",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 7,
+          "data_type": "int16",
+          "scale": 0.1,
+          "register_count": 1
+        }
+      }
+    },
+    {
+      "id": "motor-torque",
+      "name": "Motor Torque",
+      "description": "Estimated motor torque",
+      "kind": "analog",
+      "access": "input",
+      "units": "%",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 8,
+          "data_type": "int16",
+          "scale": 0.1,
+          "register_count": 1
+        }
+      }
+    },
+    {
+      "id": "dc-bus-voltage",
+      "name": "DC Bus Voltage",
+      "description": "Internal DC bus voltage",
+      "kind": "analog",
+      "access": "input",
+      "units": "V",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 9,
+          "data_type": "int16",
+          "scale": 1.0,
+          "register_count": 1
+        }
+      }
+    },
+    {
+      "id": "motor-power",
+      "name": "Motor Power",
+      "description": "Actual motor power",
+      "kind": "analog",
+      "access": "input",
+      "units": "kW",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 10,
+          "data_type": "int16",
+          "scale": 0.1,
+          "register_count": 1
+        }
+      }
+    },
+    {
+      "id": "drive-temperature",
+      "name": "Drive Temperature",
+      "description": "Drive heatsink temperature",
+      "kind": "analog",
+      "access": "input",
+      "units": "°C",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 11,
+          "data_type": "int16",
+          "scale": 0.1,
+          "register_count": 1
+        }
+      }
+    }
+  ]
+}

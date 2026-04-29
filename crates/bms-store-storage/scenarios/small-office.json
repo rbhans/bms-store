@@ -1,0 +1,53 @@
+{
+  "scenario": {
+    "id": "small-office",
+    "name": "Small Office Building",
+    "description": "A small commercial office with one AHU serving four VAV zones"
+  },
+  "settings": {
+    "tick_rate_ms": 1000,
+    "realtime": true
+  },
+  "devices": [
+    {
+      "profile": "ahu-single-duct",
+      "instance_id": "ahu-1",
+      "overrides": {
+        "bacnet_device_id": 100,
+        "bacnet_device_name": "AHU-1"
+      }
+    },
+    {
+      "profile": "vav-reheat",
+      "instance_id": "vav-1",
+      "overrides": {
+        "bacnet_device_id": 201,
+        "bacnet_device_name": "VAV-1"
+      }
+    },
+    {
+      "profile": "vav-reheat",
+      "instance_id": "vav-2",
+      "overrides": {
+        "bacnet_device_id": 202,
+        "bacnet_device_name": "VAV-2"
+      }
+    },
+    {
+      "profile": "vav-reheat",
+      "instance_id": "vav-3",
+      "overrides": {
+        "bacnet_device_id": 203,
+        "bacnet_device_name": "VAV-3"
+      }
+    },
+    {
+      "profile": "vav-reheat",
+      "instance_id": "vav-4",
+      "overrides": {
+        "bacnet_device_id": 204,
+        "bacnet_device_name": "VAV-4"
+      }
+    }
+  ]
+}

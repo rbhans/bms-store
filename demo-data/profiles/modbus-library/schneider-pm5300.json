@@ -1,0 +1,227 @@
+{
+  "profile": {
+    "id": "schneider-pm5300",
+    "name": "Schneider Electric PM5300",
+    "type": "generic",
+    "version": "1.0.0",
+    "description": "Schneider Electric PowerLogic PM5300 series power meter. Registers per PM5300 user manual.",
+    "manufacturer": "Schneider Electric",
+    "model": "PM5300",
+    "tags": ["power", "meter", "electrical", "schneider"]
+  },
+  "defaults": {
+    "protocols": {
+      "modbus": {
+        "unit_id": 1,
+        "response_timeout_ms": 5000,
+        "retry_count": 3
+      }
+    }
+  },
+  "points": [
+    {
+      "id": "voltage-l1-n",
+      "name": "Voltage L1-N",
+      "description": "Phase 1 line-to-neutral voltage",
+      "kind": "analog",
+      "access": "input",
+      "units": "V",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 3028,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "voltage-l2-n",
+      "name": "Voltage L2-N",
+      "description": "Phase 2 line-to-neutral voltage",
+      "kind": "analog",
+      "access": "input",
+      "units": "V",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 3030,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "voltage-l3-n",
+      "name": "Voltage L3-N",
+      "description": "Phase 3 line-to-neutral voltage",
+      "kind": "analog",
+      "access": "input",
+      "units": "V",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 3032,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "current-l1",
+      "name": "Current L1",
+      "description": "Phase 1 current",
+      "kind": "analog",
+      "access": "input",
+      "units": "A",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 2999,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "current-l2",
+      "name": "Current L2",
+      "description": "Phase 2 current",
+      "kind": "analog",
+      "access": "input",
+      "units": "A",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 3001,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "current-l3",
+      "name": "Current L3",
+      "description": "Phase 3 current",
+      "kind": "analog",
+      "access": "input",
+      "units": "A",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 3003,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "total-active-power",
+      "name": "Total Active Power",
+      "description": "Total 3-phase active power",
+      "kind": "analog",
+      "access": "input",
+      "units": "kW",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 3060,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "total-reactive-power",
+      "name": "Total Reactive Power",
+      "description": "Total 3-phase reactive power",
+      "kind": "analog",
+      "access": "input",
+      "units": "kVAR",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 3068,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "total-apparent-power",
+      "name": "Total Apparent Power",
+      "description": "Total 3-phase apparent power",
+      "kind": "analog",
+      "access": "input",
+      "units": "kVA",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 3076,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "power-factor",
+      "name": "Power Factor",
+      "description": "Total power factor",
+      "kind": "analog",
+      "access": "input",
+      "units": "PF",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 3084,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "frequency",
+      "name": "Frequency",
+      "description": "Line frequency",
+      "kind": "analog",
+      "access": "input",
+      "units": "Hz",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 3110,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    },
+    {
+      "id": "active-energy-delivered",
+      "name": "Active Energy Delivered",
+      "description": "Accumulated active energy delivered",
+      "kind": "analog",
+      "access": "input",
+      "units": "kWh",
+      "protocols": {
+        "modbus": {
+          "register_type": "holding",
+          "address": 3204,
+          "data_type": "float32",
+          "scale": 1.0,
+          "register_count": 2
+        }
+      }
+    }
+  ]
+}
