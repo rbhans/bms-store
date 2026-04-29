@@ -66,3 +66,55 @@ calls compile and link cleanly against the workspace versions of
 
 Not from CLI. The window opened at the ProjectLauncher stage (pre-project
 selection). `init_platform` was not exercised at runtime in this smoke test.
+
+---
+
+# Task 14 Update — platform.rs reconciled with bms-store-* boot APIs
+
+## What changed
+
+### `extracted/platform.rs` (819 → 173 LOC)
+
+- **`init_platform` rewritten** to delegate entirely to:
+  1. `bms_store_storage::boot::boot_project_with_shutdown(paths.root, shutdown)` for all stores
+  2. `bms_store_bridges::boot::boot_bridges(&storage)` for BACnet, Modbus, discovery, plugins
+- Composes `SharedPlatform` directly from the two runtimes' fields — no per-store startup logic remains in this file.
+- `init_platform_legacy` stripped (CLI-mode artifact, not needed in GUI).
+- Intermediate `Platform`, `ModelState`, `AutomationState`, `BridgeHandles`, `SharedBridgeHandles` types removed — `init_platform` now returns `(SharedPlatform, BridgeStartReport)` directly.
+- `BridgeStartReport` and `BridgeStartStatus` are re-exported from `bms_store_bridges::boot` so callers (`app.rs`, `site_context.rs`) see no import changes.
+- `SharedPlatform` now includes `override_store`, `user_store`, `audit_store` (all present in `StorageRuntime`) and `plugin_registry` (from `BridgeRuntime`).
+
+### `gui/app.rs`
+
+- Updated `ProjectGate` to match new 2-tuple return: `Ok((platform, report))` instead of `Ok((platform, bridges, report))`.
+- `App` component checks `BMS_STORE_GUI_PROJECT` env var on first render; if set, jumps straight to `AppPhase::Single(ProjectPaths::from_root(path))` instead of showing the launcher.
+
+### `main.rs`
+
+- Added `--project <path>` CLI arg parsing via `std::env::args` before Dioxus launch.
+- Resolves the path to absolute via `fs::canonicalize`, then stores in `BMS_STORE_GUI_PROJECT` env var.
+- Logs the parsed path at INFO level.
+
+## Build
+
+`cargo build -p bms-store-gui` — **PASSED** in 4.3s. 50 warnings (same pre-existing categories), 0 errors.
+
+## Smoke test: `RUST_LOG=info cargo run -p bms-store-gui -- --project ./demo-data`
+
+Log output confirmed (12-second window, no panic, clean exit on SIGTERM):
+
+```
+INFO bms_store_gui: --project flag parsed path=.../demo-data
+INFO bms_store_gui::extracted::platform: Booting storage layer… project=.../demo-data
+INFO bms_store_storage::store::migration: Applied schema migration store="nodes" version=1 …
+INFO bms_store_storage::store::migration: Applied schema migration store="history" version=1 …
+INFO bms_store_storage::store::migration: Applied schema migration store="alarms" version=1 …
+[… 20+ migration lines, all stores …]
+INFO bms_store_storage::boot: bms-store storage runtime booted project=.../demo-data devices=5 points=91
+INFO bms_store_gui::extracted::platform: Booting bridge layer…
+INFO bms_store_bridges::bridge::modbus: Modbus: no devices configured
+INFO bms_store_bridges::boot: bms-store bridge runtime booted bacnet_networks=0 modbus_ok=true
+INFO bms_store_storage::reporting::scheduler: Report scheduler started
+```
+
+All stores started. No panic. Boot reached full platform init with demo-data (5 devices, 91 points).

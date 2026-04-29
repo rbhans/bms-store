@@ -46,7 +46,17 @@ enum AppPhase {
 
 #[component]
 pub fn App() -> Element {
-    let mut phase = use_signal(|| AppPhase::Launcher);
+    // If --project <path> was supplied on the command line, main.rs stashes the path
+    // in BMS_STORE_GUI_PROJECT before Dioxus starts.  Pick it up once at init time
+    // and skip straight to the single-project view.
+    let mut phase = use_signal(|| {
+        if let Ok(p) = std::env::var("BMS_STORE_GUI_PROJECT") {
+            let root = std::path::PathBuf::from(p);
+            AppPhase::Single(bms_store_storage::project::ProjectPaths::from_root(root))
+        } else {
+            AppPhase::Launcher
+        }
+    });
     let mut initial_tab = use_signal(|| Option::<CloseAction>::None);
 
     let current_phase = phase.read().clone();
@@ -125,13 +135,13 @@ fn ProjectGate(paths: ProjectPaths, on_close: EventHandler<CloseAction>) -> Elem
             spawn(async move {
                 let shutdown_token = tokio_util::sync::CancellationToken::new();
                 match init_platform(&pp, shutdown_token).await {
-                    Ok((platform, bridges, report)) => {
+                    Ok((platform, report)) => {
                         if !report.all_ok() {
                             for (label, err) in report.failures() {
                                 tracing::warn!(bridge = %label, "Bridge failed to start: {err}");
                             }
                         }
-                        platform_data.set(Some(platform.into_shared(bridges)));
+                        platform_data.set(Some(platform));
                     }
                     Err(e) => {
                         init_error.set(Some(format!("{e}")));
