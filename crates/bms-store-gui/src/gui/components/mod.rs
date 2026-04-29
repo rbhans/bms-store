@@ -1,6 +1,5 @@
 pub mod alarm_routing_view;
 pub mod alarm_view;
-#[cfg(feature = "atlas")]
 pub mod atlas_settings;
 pub mod audit_log_view;
 pub mod bacnet_device_alarms;

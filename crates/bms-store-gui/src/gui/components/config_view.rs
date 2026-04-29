@@ -42,7 +42,6 @@ pub enum ConfigSection {
     Energy,
     Fdd,
     DataExport,
-    #[cfg(feature = "atlas")]
     Atlas,
 }
 
@@ -66,7 +65,6 @@ impl ConfigSection {
             Self::WebServer => "Web Server",
             Self::Users => "Users",
             Self::AuditLog => "Audit Log",
-            #[cfg(feature = "atlas")]
             Self::Atlas => "Atlas",
         }
     }
@@ -117,7 +115,6 @@ impl ConfigSection {
         if can_manage_export {
             sections.push(Self::DataExport);
         }
-        #[cfg(feature = "atlas")]
         sections.push(Self::Atlas);
         if can_manage_users {
             sections.push(Self::WebServer);
@@ -245,7 +242,6 @@ pub fn ConfigView() -> Element {
                     ConfigSection::DataExport => rsx! { super::export_settings::ExportSettingsView {} },
                     ConfigSection::WebServer => rsx! { WebServerSettingsView {} },
                     ConfigSection::AuditLog => rsx! { AuditLogView {} },
-                    #[cfg(feature = "atlas")]
                     ConfigSection::Atlas => rsx! { super::atlas_settings::AtlasSettingsView {} },
                 }
             }
