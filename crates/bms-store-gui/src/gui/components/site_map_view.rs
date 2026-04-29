@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use dioxus::prelude::*;
 
-use crate::config::profile::PointValue;
+use bms_store_storage::config::profile::PointValue;
 use crate::gui::state::{
     find_building_children, save_mapbox_config, ActiveView, AppState, MapMarker, MapViewConfig,
     MapboxConfig, MarkerIcon, SiteMapData, StatusBinding,

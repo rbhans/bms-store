@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::bridge::bacnet::BacnetNetworks;
+use bms_store_bridges::bridge::bacnet::BacnetNetworks;
 use crate::gui::state::AppState;
 
 use super::discovery_utils::{event_state_label, extract_bacnet_instance};
@@ -8,7 +8,7 @@ use super::discovery_utils::{event_state_label, extract_bacnet_instance};
 pub(crate) fn render_bacnet_management(
     state: &AppState,
     detail_dev_id: &Option<String>,
-    mut event_infos: Signal<Vec<crate::bridge::bacnet::BacnetEventInfo>>,
+    mut event_infos: Signal<Vec<bms_store_bridges::bridge::bacnet::BacnetEventInfo>>,
     mut trend_logs: Signal<Vec<(u32, String)>>,
 ) -> Element {
     let mgmt_dev_id = detail_dev_id.clone().unwrap_or_default();

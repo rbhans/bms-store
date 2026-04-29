@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::config::profile::PointValue;
+use bms_store_storage::config::profile::PointValue;
 use crate::gui::state::{AppState, EquipSymbol};
 use bms_store_storage::store::point_store::PointStatusFlags;
 

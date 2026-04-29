@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
+use bms_store_storage::auth::Permission;
 use crate::gui::state::AppState;
 use bms_store_storage::store::commissioning_store::{CommissionSummary, SessionStatus};
 

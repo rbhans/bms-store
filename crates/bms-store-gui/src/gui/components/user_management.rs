@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::auth::{self, AllRolePermissions, Permission, RolePermissions};
+use bms_store_storage::auth::{self, AllRolePermissions, Permission, RolePermissions};
 use bms_store_storage::store::user_store::{User, UserRole, UserStore};
 
 #[derive(Debug, Clone, Copy, PartialEq)]

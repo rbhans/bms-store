@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use dioxus::prelude::*;
 
-use crate::discovery::grouping::{
+use bms_store_bridges::discovery::grouping::{
     find_related_groups, point_set_from_json, suggest_group_name, RelatedGroup,
 };
 use crate::gui::state::{ActiveView, AppState};

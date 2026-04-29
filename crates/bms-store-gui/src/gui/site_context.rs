@@ -9,13 +9,13 @@ use std::sync::Arc;
 use dioxus::prelude::*;
 use tokio_util::sync::CancellationToken;
 
-use crate::auth::AllRolePermissions;
+use bms_store_storage::auth::AllRolePermissions;
 use crate::platform::{BridgeStartReport, SharedPlatform};
-use crate::project::{ProjectMeta, ProjectPaths};
+use bms_store_storage::project::{ProjectMeta, ProjectPaths};
 use bms_store_storage::store::audit_store::AuditStore;
 use bms_store_storage::store::user_store::{User, UserStore};
-use crate::weather::model::WeatherData;
-use crate::weather::service::WeatherService;
+use bms_store_storage::weather::model::WeatherData;
+use bms_store_storage::weather::service::WeatherService;
 
 use super::theme::ThemeConfig;
 

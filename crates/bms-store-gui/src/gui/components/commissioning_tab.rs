@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
-use crate::config::profile::PointValue;
+use bms_store_storage::auth::Permission;
+use bms_store_storage::config::profile::PointValue;
 use crate::gui::state::AppState;
 use bms_store_storage::store::audit_store::{AuditAction, AuditEntryBuilder};
 use bms_store_storage::store::commissioning_store::{

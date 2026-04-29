@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::bridge::bacnet::BacnetNetworks;
+use bms_store_bridges::bridge::bacnet::BacnetNetworks;
 use crate::gui::state::AppState;
 use rustbac_core::types::{ObjectId, ObjectType, PropertyId};
 
@@ -85,7 +85,7 @@ pub fn BacnetDeviceAdvanced(device_instance: u32) -> Element {
     let mut pt_loading = use_signal(|| false);
 
     // C2: COV Health Snapshot
-    let mut cov_health: Signal<Option<crate::bridge::bacnet::CovHealthSnapshot>> =
+    let mut cov_health: Signal<Option<bms_store_bridges::bridge::bacnet::CovHealthSnapshot>> =
         use_signal(|| None);
     {
         let bridge_handle = state.bacnet_handle();

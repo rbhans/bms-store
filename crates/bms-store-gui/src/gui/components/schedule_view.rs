@@ -2,10 +2,10 @@ use std::collections::HashSet;
 
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
-use crate::bridge::bacnet::BacnetNetworks;
-use crate::config::profile::PointKind;
-use crate::config::profile::PointValue;
+use bms_store_storage::auth::Permission;
+use bms_store_bridges::bridge::bacnet::BacnetNetworks;
+use bms_store_storage::config::profile::PointKind;
+use bms_store_storage::config::profile::PointValue;
 use crate::gui::state::AppState;
 use bms_store_storage::store::schedule_store::{
     compute_preview, empty_weekly, template_24_7, template_extended_hours, template_office_hours,
@@ -969,7 +969,7 @@ fn AssignPointBrowser(
 }
 
 fn collect_points(
-    devices: &[crate::config::loader::LoadedDevice],
+    devices: &[bms_store_storage::config::loader::LoadedDevice],
     query: &str,
     kind_filter: Option<PointKind>,
 ) -> HashSet<(String, String)> {

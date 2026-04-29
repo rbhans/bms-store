@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::gui::state::{
     insert_nav_child, remove_nav_node, ActiveView, AppState, NavNode, NavNodeKind,
 };
-use crate::node::{Node, NodeType};
+use bms_core::node::{Node, NodeType};
 use bms_store_storage::store::node_store::NodeStore;
 
 #[component]

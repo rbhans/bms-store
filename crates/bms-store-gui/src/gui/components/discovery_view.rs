@@ -2,15 +2,15 @@ use std::collections::HashMap;
 
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
-use crate::bridge::bacnet::BacnetNetworks;
-use crate::bridge::modbus::ModbusBridge;
-use crate::config::profile::{load_profile_library, DeviceProfile};
-use crate::discovery::grouping::{
+use bms_store_storage::auth::Permission;
+use bms_store_bridges::bridge::bacnet::BacnetNetworks;
+use bms_store_bridges::bridge::modbus::ModbusBridge;
+use bms_store_storage::config::profile::{load_profile_library, DeviceProfile};
+use bms_store_bridges::discovery::grouping::{
     canonical_point_set, find_related_groups, kind_signature, point_kind_fingerprint,
     point_set_to_json, suggest_group_name,
 };
-use crate::discovery::model::{
+use bms_store_storage::discovery::model::{
     DeviceState, DiscoveredDevice, DiscoveredPoint, PointKindHint, PROTOCOL_BACNET, PROTOCOL_MODBUS,
 };
 use crate::gui::state::AppState;
@@ -33,7 +33,7 @@ pub fn DiscoveryView() -> Element {
     let mut scanning_bacnet = use_signal(|| false);
     let mut scanning_modbus = use_signal(|| false);
     let mut refresh_counter = use_signal(|| 0u64);
-    let event_infos: Signal<Vec<crate::bridge::bacnet::BacnetEventInfo>> = use_signal(Vec::new);
+    let event_infos: Signal<Vec<bms_store_bridges::bridge::bacnet::BacnetEventInfo>> = use_signal(Vec::new);
     let trend_logs: Signal<Vec<(u32, String)>> = use_signal(Vec::new);
     let create_object_type: Signal<String> = use_signal(|| "AnalogValue".to_string());
     let delete_object_input: Signal<String> = use_signal(String::new);
@@ -135,7 +135,7 @@ pub fn DiscoveryView() -> Element {
             // Compute kind-based groups from all device points
             let all_points = ds.get_all_device_points().await;
             let mut kind_groups: HashMap<u64, Vec<String>> = HashMap::new();
-            let mut group_points: HashMap<u64, Vec<crate::discovery::model::DiscoveredPoint>> =
+            let mut group_points: HashMap<u64, Vec<bms_store_storage::discovery::model::DiscoveredPoint>> =
                 HashMap::new();
             let mut device_names: HashMap<String, String> = HashMap::new();
             for dev in &all {

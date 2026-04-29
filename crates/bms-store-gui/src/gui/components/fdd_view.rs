@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
-use crate::fdd::model::{
+use bms_store_storage::auth::Permission;
+use bms_store_storage::fdd::model::{
     FddBinding, FddCategory, FddFault, FddFaultEvent, FddFaultState, FddHistoryQuery, FddRule,
     FddSeverity,
 };

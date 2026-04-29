@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::discovery::grouping::RelatedGroup;
-use crate::discovery::model::{ConnStatus, DeviceState, PointKindHint};
+use bms_store_bridges::discovery::grouping::RelatedGroup;
+use bms_store_storage::discovery::model::{ConnStatus, DeviceState, PointKindHint};
 
 /// A group of devices with the same point kind distribution.
 #[derive(Clone)]

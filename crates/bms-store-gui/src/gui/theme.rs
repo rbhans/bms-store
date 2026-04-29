@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::project::ProjectPaths;
+use bms_store_storage::project::ProjectPaths;
 
 // ----------------------------------------------------------------
 // Data model

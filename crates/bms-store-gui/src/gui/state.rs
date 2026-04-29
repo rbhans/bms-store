@@ -6,14 +6,14 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc::UnboundedSender, Mutex};
 
 use super::theme::ThemeConfig;
-use crate::auth::{AllRolePermissions, Permission};
-use crate::config::loader::LoadedScenario;
-use crate::config::profile::PointValue;
-use crate::discovery::service::DiscoveryService;
+use bms_store_storage::auth::{AllRolePermissions, Permission};
+use bms_store_storage::config::loader::LoadedScenario;
+use bms_store_storage::config::profile::PointValue;
+use bms_store_bridges::discovery::service::DiscoveryService;
 use bms_core::event::EventBus;
-use crate::logic::store::ProgramStore;
-use crate::plugin::{BridgeRegistry, ProtocolBridgeHandle};
-use crate::project::{ProjectMeta, ProjectPaths};
+use bms_store_storage::logic::store::ProgramStore;
+use bms_store_bridges::plugin::{BridgeRegistry, ProtocolBridgeHandle};
+use bms_store_storage::project::{ProjectMeta, ProjectPaths};
 use bms_store_storage::store::alarm_store::AlarmStore;
 use bms_store_storage::store::audit_store::{AuditEntryBuilder, AuditStore};
 use bms_store_storage::store::commissioning_store::CommissioningStore;
@@ -27,8 +27,8 @@ use bms_store_storage::store::point_store::PointStore;
 use bms_store_storage::store::schedule_store::ScheduleStore;
 use bms_store_storage::store::user_store::{User, UserStore};
 use bms_store_storage::store::webhook_store::WebhookStore;
-use crate::weather::model::WeatherData;
-use crate::weather::service::WeatherService;
+use bms_store_storage::weather::model::WeatherData;
+use bms_store_storage::weather::service::WeatherService;
 
 // ----------------------------------------------------------------
 // Site map (Mapbox GL JS) data model
@@ -576,11 +576,11 @@ pub enum CloseAction {
 #[derive(Debug, Clone)]
 pub enum LaunchSelection {
     /// Single-project mode (legacy). The launcher picked one project.
-    Single(crate::project::ProjectPaths),
+    Single(bms_store_storage::project::ProjectPaths),
     /// Multi-site supervisor mode. The launcher picked N local projects and
     /// optionally M remote-site connection profiles to load in one process.
     Supervisor {
-        local_sites: Vec<crate::project::ProjectPaths>,
+        local_sites: Vec<bms_store_storage::project::ProjectPaths>,
         remote_sites: Vec<RemoteSiteConfig>,
     },
 }
@@ -741,7 +741,7 @@ pub struct AppState {
     #[cfg(feature = "cloud")]
     pub cloud_store: bms_store_storage::store::cloud_store::CloudStore,
     /// Platform health registry — shared across all subsystems.
-    pub health: crate::health::HealthRegistry,
+    pub health: bms_store_storage::health::HealthRegistry,
     /// Live WASM plugin runtime — holds all loaded plugin instances.
     /// `None` when the `wasm-plugins` feature is disabled or init failed.
     #[cfg(feature = "wasm-plugins")]
@@ -767,7 +767,7 @@ pub struct AppState {
     /// BAS Atlas taxonomy matcher — shared with DiscoveryService.
     /// Writing to this lock immediately affects the live DiscoveryService.
     #[cfg(feature = "atlas")]
-    pub atlas_lock: Arc<std::sync::RwLock<Option<Arc<crate::atlas::matcher::AtlasMatcher>>>>,
+    pub atlas_lock: Arc<std::sync::RwLock<Option<Arc<bms_store_storage::atlas::matcher::AtlasMatcher>>>>,
 }
 
 impl AppState {
@@ -821,7 +821,7 @@ impl AppState {
         let user = self.current_user.read();
         let perms = self.role_permissions.read();
         match user.as_ref() {
-            Some(u) => crate::auth::has_permission(u, perm, &perms),
+            Some(u) => bms_store_storage::auth::has_permission(u, perm, &perms),
             None => false,
         }
     }

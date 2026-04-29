@@ -6,7 +6,7 @@ use crate::gui::state::{
 };
 use bms_store_storage::store::history_store::{HistoryQuery, HistoryResult};
 
-use crate::config::loader::LoadedDevice;
+use bms_store_storage::config::loader::LoadedDevice;
 
 const COLORS: &[&str] = &[
     "#D4714E", "#7DB87D", "#5B9BD5", "#E8A87C", "#9B59B6", "#E67E22", "#2ECC71", "#3498DB",

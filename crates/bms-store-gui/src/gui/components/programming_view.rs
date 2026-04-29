@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
-use crate::config::profile::PointValue;
+use bms_store_storage::auth::Permission;
+use bms_store_storage::config::profile::PointValue;
 use crate::gui::state::AppState;
-use crate::logic::compiler::compile_program;
-use crate::logic::model::*;
-use crate::logic::store::ExecutionLogEntry;
-use crate::logic::templates::{self, TemplateCategory};
+use bms_store_storage::logic::compiler::compile_program;
+use bms_store_storage::logic::model::*;
+use bms_store_storage::logic::store::ExecutionLogEntry;
+use bms_store_storage::logic::templates::{self, TemplateCategory};
 use bms_store_storage::store::node_store::NodeRecord;
 
 // ----------------------------------------------------------------
@@ -1565,7 +1565,7 @@ fn add_block_to_program(
     bt_key: &str,
     node: &str,
     prog: &Program,
-    ps: &crate::logic::store::ProgramStore,
+    ps: &bms_store_storage::logic::store::ProgramStore,
     vb_x: f64,
     vb_y: f64,
     vb_w: f64,

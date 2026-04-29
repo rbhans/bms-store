@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
+use bms_store_storage::auth::Permission;
 use crate::gui::state::AppState;
 use bms_store_storage::store::energy_store::{EnergyMeter, StoredRollup, UtilityRate};
 
@@ -76,7 +76,7 @@ fn EnergyDashboard() -> Element {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as i64;
-    let today_start = crate::energy::consumption::day_start_ms(now_ms);
+    let today_start = bms_store_storage::energy::consumption::day_start_ms(now_ms);
     let week_start = today_start - 7 * 86_400_000;
 
     // Fetch rollups for all meters over last 7 days
@@ -592,7 +592,7 @@ fn BaselineMeterSection(meter_id: i64, meter_name: String, can_manage: bool) -> 
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as i64;
-        let end = crate::energy::consumption::day_start_ms(now_ms);
+        let end = bms_store_storage::energy::consumption::day_start_ms(now_ms);
         let start = end - days * 86_400_000;
         let config = serde_json::json!({
             "base_temp_f": 65.0,

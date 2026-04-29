@@ -10,9 +10,9 @@
 
 use std::collections::HashMap;
 
-use crate::config::loader::resolve_scenario;
-use crate::config::scenario::ScenarioSettings;
-use crate::project::ProjectPaths;
+use bms_store_storage::config::loader::resolve_scenario;
+use bms_store_storage::config::scenario::ScenarioSettings;
+use bms_store_storage::project::ProjectPaths;
 
 /// Fatal validation error — supervisor launch is aborted.
 #[derive(Debug, Clone, PartialEq)]
@@ -227,7 +227,7 @@ fn modbus_rtu_port(settings: Option<&ScenarioSettings>) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::scenario::{BacnetNetworkConfig, WebServerConfig};
+    use bms_store_storage::config::scenario::{BacnetNetworkConfig, WebServerConfig};
 
     fn settings_with_bacnet_ip() -> ScenarioSettings {
         let mut s = ScenarioSettings::default();
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn modbus_rtu_port_returns_none_for_tcp() {
         let mut s = ScenarioSettings::default();
-        s.modbus = Some(crate::config::scenario::ModbusNetworkConfig {
+        s.modbus = Some(bms_store_storage::config::scenario::ModbusNetworkConfig {
             mode: Some("tcp".to_string()),
             serial_port: Some("/dev/ttyUSB1".to_string()),
             baud_rate: None,
@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn modbus_rtu_port_returns_port_for_rtu() {
         let mut s = ScenarioSettings::default();
-        s.modbus = Some(crate::config::scenario::ModbusNetworkConfig {
+        s.modbus = Some(bms_store_storage::config::scenario::ModbusNetworkConfig {
             mode: Some("rtu".to_string()),
             serial_port: Some("/dev/ttyUSB1".to_string()),
             baud_rate: None,

@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use dioxus::prelude::*;
 
-use crate::discovery::model::{DeviceState, DiscoveredDevice, DiscoveredPoint, PointKindHint};
-use crate::discovery::naming;
+use bms_store_storage::discovery::model::{DeviceState, DiscoveredDevice, DiscoveredPoint, PointKindHint};
+use bms_store_bridges::discovery::naming;
 use crate::gui::state::AppState;
 
 use super::discovery_utils::{bump, kind_label, DeviceGroup};

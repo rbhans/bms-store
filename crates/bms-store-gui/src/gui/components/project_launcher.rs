@@ -2,9 +2,9 @@ use std::collections::HashSet;
 
 use dioxus::prelude::*;
 
-use crate::auth::can_admin;
+use bms_store_storage::auth::can_admin;
 use crate::gui::state::{CloseAction, LaunchSelection, RemoteSiteConfig};
-use crate::project::{
+use bms_store_storage::project::{
     create_project, delete_project, export_project, import_project, load_registry,
     migrate_legacy_if_needed, opencrate_home, validate_project_path, ProjectPaths,
 };
@@ -149,7 +149,7 @@ pub fn ProjectLauncher(
                                                                 error_msg.set(Some(e));
                                                                 return;
                                                             }
-                                                            crate::project::touch_project(&proj_id);
+                                                            bms_store_storage::project::touch_project(&proj_id);
                                                             on_open.call(LaunchSelection::Single(paths));
                                                         }
                                                     },
@@ -378,7 +378,7 @@ pub fn ProjectLauncher(
                                                                 return;
                                                             }
                                                             local_resolved.push(paths);
-                                                            crate::project::touch_project(id);
+                                                            bms_store_storage::project::touch_project(id);
                                                         }
                                                     }
 
@@ -489,7 +489,7 @@ pub fn ProjectLauncher(
                                                                 error_msg.set(Some(e));
                                                                 return;
                                                             }
-                                                            crate::project::touch_project(&open_id);
+                                                            bms_store_storage::project::touch_project(&open_id);
                                                             on_open.call(LaunchSelection::Single(paths));
                                                         }
                                                     },

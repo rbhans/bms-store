@@ -3,11 +3,11 @@ use std::collections::{HashMap, HashSet};
 use dioxus::prelude::*;
 
 use crate::gui::state::AppState;
-use crate::haystack::prototypes::{EQUIP_PROTOTYPES, POINT_PROTOTYPES};
-use crate::haystack::tags::{self, TagKind};
+use bms_store_bridges::haystack::prototypes::{EQUIP_PROTOTYPES, POINT_PROTOTYPES};
+use bms_store_bridges::haystack::tags::{self, TagKind};
 use bms_store_storage::store::entity_store::Entity;
 
-use crate::auth::Permission;
+use bms_store_storage::auth::Permission;
 use bms_store_storage::store::node_store::NodeRecord;
 
 use super::alarm_routing_view::AlarmRoutingView;
@@ -857,14 +857,14 @@ fn CreateEntityPrompt(entity_id: String, entity_type: String) -> Element {
                                 let pid = parent.clone();
                                 let points = pts.clone();
 
-                                let provider = crate::haystack::provider::Haystack4Provider;
+                                let provider = bms_store_bridges::haystack::provider::Haystack4Provider;
                                 let pname = profile_name.clone();
 
                                 // Build equip tags
                                 let mut initial_tags = vec![(et.clone(), None)];
                                 let equip_tags_map: HashMap<String, Option<String>>;
                                 if et == "equip" {
-                                    let suggested = crate::haystack::auto_tag::suggest_equip_tags(
+                                    let suggested = bms_store_bridges::haystack::auto_tag::suggest_equip_tags(
                                         &pname,
                                         &provider,
                                     );
@@ -878,7 +878,7 @@ fn CreateEntityPrompt(entity_id: String, entity_type: String) -> Element {
                                     equip_tags_map = HashMap::new();
                                     // For single point, auto-tag using both ID and display name
                                     let point_id_part = id.split('/').last().unwrap_or(&id);
-                                    let suggested = crate::haystack::auto_tag::suggest_point_tags_multi(
+                                    let suggested = bms_store_bridges::haystack::auto_tag::suggest_point_tags_multi(
                                         &[point_id_part, &dn],
                                         None,
                                         &equip_tags_map,
@@ -906,7 +906,7 @@ fn CreateEntityPrompt(entity_id: String, entity_type: String) -> Element {
                                         for (pt_id, pt_name, pt_units) in &points {
                                             let point_entity_id = format!("{}/{}", id, pt_id);
                                             // Use both ID and display name for better tag matching
-                                            let suggested = crate::haystack::auto_tag::suggest_point_tags_multi(
+                                            let suggested = bms_store_bridges::haystack::auto_tag::suggest_point_tags_multi(
                                                 &[pt_id, pt_name],
                                                 pt_units.as_deref(),
                                                 &equip_tags_map,
@@ -1159,7 +1159,7 @@ fn BatchTagEditor(batch_selected: Signal<HashSet<String>>, entity_version: Signa
                                 let ns = ns_auto.clone();
                                 let ids: Vec<String> = sel_auto.iter().cloned().collect();
                                 spawn(async move {
-                                    let provider = crate::haystack::provider::Haystack4Provider;
+                                    let provider = bms_store_bridges::haystack::provider::Haystack4Provider;
                                     for id in &ids {
                                         let is_point = id.contains('/');
                                         if is_point {
@@ -1182,13 +1182,13 @@ fn BatchTagEditor(batch_selected: Signal<HashSet<String>>, entity_version: Signa
                                             let equip_tags_map: HashMap<String, Option<String>> = match ns.get_node(device_id).await {
                                                 Ok(en) => {
                                                     let pname = en.properties.get("profile").cloned().unwrap_or_default();
-                                                    crate::haystack::auto_tag::suggest_equip_tags(&pname, &provider)
+                                                    bms_store_bridges::haystack::auto_tag::suggest_equip_tags(&pname, &provider)
                                                         .into_iter().collect()
                                                 }
                                                 Err(_) => HashMap::new(),
                                             };
 
-                                            let suggested = crate::haystack::auto_tag::suggest_point_tags_multi(
+                                            let suggested = bms_store_bridges::haystack::auto_tag::suggest_point_tags_multi(
                                                 &[point_id, &pt_name],
                                                 pt_units.as_deref(),
                                                 &equip_tags_map,
@@ -1218,7 +1218,7 @@ fn BatchTagEditor(batch_selected: Signal<HashSet<String>>, entity_version: Signa
                                                 }
                                                 Err(_) => (id.clone(), String::new()),
                                             };
-                                            let suggested = crate::haystack::auto_tag::suggest_equip_tags(
+                                            let suggested = bms_store_bridges::haystack::auto_tag::suggest_equip_tags(
                                                 &profile_name,
                                                 &provider,
                                             );

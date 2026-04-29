@@ -2,7 +2,7 @@
 use dioxus::prelude::*;
 
 #[cfg(feature = "cloud")]
-use crate::auth::Permission;
+use bms_store_storage::auth::Permission;
 #[cfg(feature = "cloud")]
 use crate::cloud::{CloudBridgeConfig, CloudBridgeStatus, CloudProvider};
 #[cfg(feature = "cloud")]

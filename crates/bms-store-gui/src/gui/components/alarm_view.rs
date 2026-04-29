@@ -2,9 +2,9 @@ use std::collections::HashSet;
 
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
-use crate::bridge::bacnet::BacnetNetworks;
-use crate::config::profile::PointKind;
+use bms_store_storage::auth::Permission;
+use bms_store_bridges::bridge::bacnet::BacnetNetworks;
+use bms_store_storage::config::profile::PointKind;
 use crate::gui::state::AppState;
 use bms_store_storage::store::alarm_store::{
     ActiveAlarm, AlarmConfig, AlarmEvent, AlarmHistoryQuery, AlarmParams, AlarmSeverity,
@@ -179,7 +179,7 @@ fn AlarmDeviceBrowser(
     }
 }
 
-fn device_matches_alarm(dev: &crate::config::loader::LoadedDevice, query: &str) -> bool {
+fn device_matches_alarm(dev: &bms_store_storage::config::loader::LoadedDevice, query: &str) -> bool {
     if query.is_empty() {
         return true;
     }
@@ -198,7 +198,7 @@ fn device_matches_alarm(dev: &crate::config::loader::LoadedDevice, query: &str) 
 
 /// Collect all points that match the current search filter and optional kind filter.
 fn collect_visible_points(
-    devices: &[crate::config::loader::LoadedDevice],
+    devices: &[bms_store_storage::config::loader::LoadedDevice],
     query: &str,
     kind_filter: Option<PointKind>,
 ) -> HashSet<(String, String)> {

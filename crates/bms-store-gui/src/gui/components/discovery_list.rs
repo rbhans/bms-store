@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
-use crate::discovery::model::{ConnStatus, DeviceState, DiscoveredDevice};
+use bms_store_storage::auth::Permission;
+use bms_store_storage::discovery::model::{ConnStatus, DeviceState, DiscoveredDevice};
 use crate::gui::state::AppState;
 
 use super::discovery_utils::{

@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
+use bms_store_storage::auth::Permission;
 use crate::gui::state::AppState;
-use crate::mqtt::topic;
+use bms_store_storage::mqtt::topic;
 use bms_store_storage::store::audit_store::{AuditAction, AuditEntryBuilder};
 use bms_store_storage::store::mqtt_store::{MqttBrokerConfig, MqttEventType, MqttTopicPattern};
 

@@ -1,10 +1,10 @@
 use dioxus::prelude::*;
 
 use crate::gui::state::AppState;
-use crate::plugin::archive::{self, PluginManifest, WasmSection};
+use bms_store_bridges::plugin::archive::{self, PluginManifest, WasmSection};
 #[cfg(feature = "wasm-plugins")]
-use crate::plugin::service;
-use crate::plugin::{
+use bms_store_bridges::plugin::service;
+use bms_store_bridges::plugin::{
     load_plugin_settings, plugin_catalog, resolve_plugin_status, PluginInfo, PluginSettings,
     PluginStatus,
 };
@@ -485,7 +485,7 @@ fn is_data_installed(state: &AppState, info: &PluginInfo) -> bool {
         #[cfg(feature = "atlas")]
         "atlas" => {
             let path = state.project_paths.db_path("bas-atlas.db");
-            crate::atlas::db::AtlasDb::is_available(&path)
+            bms_store_storage::atlas::db::AtlasDb::is_available(&path)
         }
         _ => {
             // Check for a saved manifest file from .ocplugin install

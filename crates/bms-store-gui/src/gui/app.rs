@@ -4,13 +4,13 @@ use std::sync::Arc;
 use dioxus::prelude::*;
 use tokio::sync::Mutex;
 
-use crate::config::profile::PointValue;
+use bms_store_storage::config::profile::PointValue;
 
-use crate::auth::AllRolePermissions;
+use bms_store_storage::auth::AllRolePermissions;
 use bms_core::event::Event;
-use crate::logic::engine::ExecutionEngine;
+use bms_store_storage::logic::engine::ExecutionEngine;
 use crate::platform::{init_platform, SharedPlatform};
-use crate::project::{load_project_meta, ProjectMeta, ProjectPaths};
+use bms_store_storage::project::{load_project_meta, ProjectMeta, ProjectPaths};
 use bms_store_storage::store::audit_store::start_audit_store_with_path;
 use bms_store_storage::store::point_store::{PointKey, PointStatusFlags};
 use bms_store_storage::store::user_store::{start_user_store_with_path, User, UserStore};
@@ -36,8 +36,8 @@ use super::state::{
     LaunchSelection, RemoteSiteConfig, SidebarTab, WriteCommand,
 };
 use super::theme::{apply_theme_css, load_theme_config, save_theme_config};
-use crate::weather::config::WeatherConfig;
-use crate::weather::service::WeatherService;
+use bms_store_storage::weather::config::WeatherConfig;
+use bms_store_storage::weather::service::WeatherService;
 
 /// Top-level app phase — launcher, single-project, or multi-site supervisor.
 #[derive(Clone)]
@@ -341,9 +341,9 @@ pub(crate) fn ProjectApp(
         #[cfg(feature = "wasm-plugins")]
         let wasm_rt = plat.wasm_runtime.clone();
         move || {
-            let write_cb: crate::logic::engine::WriteCallback = std::sync::Arc::new(
+            let write_cb: bms_store_storage::logic::engine::WriteCallback = std::sync::Arc::new(
                 move |node_id: &str,
-                      value: crate::config::profile::PointValue,
+                      value: bms_store_storage::config::profile::PointValue,
                       priority: Option<u8>| {
                     if let Some((dev, pt)) = node_id.split_once('/') {
                         let _ = wtx.send(WriteCommand {
@@ -429,7 +429,7 @@ pub(crate) fn ProjectApp(
             .map(|o| o.weather_service.clone())
             .unwrap_or_else(|| Arc::new(WeatherService::new(weather_config)))
     });
-    let weather_data = use_signal(|| Option::<crate::weather::model::WeatherData>::None);
+    let weather_data = use_signal(|| Option::<bms_store_storage::weather::model::WeatherData>::None);
     let theme_config = use_signal(|| load_theme_config(&project_paths));
     let pending_config_section = use_signal(|| Option::<String>::None);
 
@@ -668,7 +668,7 @@ pub(crate) fn ProjectApp(
         use_hook(move || {
             spawn(async move {
                 use crate::api::{self, ApiState};
-                use crate::backup::BackupScheduler;
+                use bms_store_storage::backup::BackupScheduler;
                 use crate::gui::components::web_server_settings::load_web_server_config;
                 use bms_store_storage::store::override_store::start_override_store_with_path;
 

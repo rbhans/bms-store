@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
 
-use crate::config::profile::PointValue;
+use bms_store_storage::config::profile::PointValue;
 use crate::gui::state::AppState;
-use crate::node::{Node, NodeCapabilities, NodeType, ProtocolBinding};
+use bms_core::node::{Node, NodeCapabilities, NodeType, ProtocolBinding};
 use bms_store_storage::store::node_store::NodeRecord;
 use bms_store_storage::store::point_store::PointKey;
 

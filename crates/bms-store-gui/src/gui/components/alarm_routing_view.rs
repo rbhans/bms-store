@@ -1,13 +1,13 @@
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
+use bms_store_storage::auth::Permission;
 use crate::gui::state::AppState;
-use crate::notification::channel::{
+use bms_store_storage::notification::channel::{
     NotificationChannel, NotificationEventType, NotificationPayload,
 };
-use crate::notification::email::EmailChannel;
-use crate::notification::sms::SmsChannel;
-use crate::notification::webhook::WebhookChannel;
+use bms_store_storage::notification::email::EmailChannel;
+use bms_store_storage::notification::sms::SmsChannel;
+use bms_store_storage::notification::webhook::WebhookChannel;
 use bms_store_storage::store::audit_store::{AuditAction, AuditEntryBuilder};
 use bms_store_storage::store::notification_store::{
     AlarmRecipient, ChannelType, DeliveryStatus, NotificationRecord, RoutingRule,
@@ -259,7 +259,7 @@ fn RecipientsTab(can_manage: bool) -> Element {
                                                             recipient_name: name,
                                                             project_name: "OpenCrate Test".into(),
                                                         };
-                                                        let result: Result<(), crate::notification::channel::ChannelError> = match ct {
+                                                        let result: Result<(), bms_store_storage::notification::channel::ChannelError> = match ct {
                                                             ChannelType::Webhook => WebhookChannel::new().send(&addr, &cfg, &payload).await,
                                                             ChannelType::Email => EmailChannel::new().send(&addr, &cfg, &payload).await,
                                                             ChannelType::Sms => SmsChannel::new().send(&addr, &cfg, &payload).await,

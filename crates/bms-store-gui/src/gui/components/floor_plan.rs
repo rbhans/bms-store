@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use dioxus::prelude::*;
 
-use crate::config::profile::PointValue;
+use bms_store_storage::config::profile::PointValue;
 use crate::gui::components::building_tree::collect_spatial_ancestors;
 use crate::gui::state::{
     insert_nav_child, remove_nav_node, update_nav_node, AppState, CanvasSelection, CanvasTool,
@@ -1610,7 +1610,7 @@ fn ZoneProperties(
                                     if let Some(ref dev_id) = new_dev {
                                         // Ensure space node exists for this zone
                                         if ns.get_node(&space_id).await.is_err() {
-                                            use crate::node::{Node, NodeType};
+                                            use bms_core::node::{Node, NodeType};
                                             let space_node = Node::new(
                                                 space_id.clone(),
                                                 NodeType::Space,

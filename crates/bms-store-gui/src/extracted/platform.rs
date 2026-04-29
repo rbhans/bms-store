@@ -4,21 +4,21 @@ use std::time::Duration;
 
 use tokio::sync::Mutex;
 
-use crate::bridge::bacnet::{bacnet_configs_from_scenario, BacnetBridge, BacnetNetworks};
-use crate::bridge::modbus::{modbus_config_from_scenario, ModbusBridge};
-use crate::bridge::traits::PointSource;
-use crate::config::loader::{resolve_scenario, LoadedScenario};
-use crate::config::template::auto_create_nodes;
-use crate::discovery::service::DiscoveryService;
+use bms_store_bridges::bridge::bacnet::{bacnet_configs_from_scenario, BacnetBridge, BacnetNetworks};
+use bms_store_bridges::bridge::modbus::{modbus_config_from_scenario, ModbusBridge};
+use bms_store_bridges::bridge::traits::PointSource;
+use bms_store_storage::config::loader::{resolve_scenario, LoadedScenario};
+use bms_store_storage::config::template::auto_create_nodes;
+use bms_store_bridges::discovery::service::DiscoveryService;
 use bms_core::event::EventBus;
 use bms_store_storage::event::journal::EventJournal;
-use crate::export::publisher::ExportPublisher;
-use crate::health::HealthRegistry;
-use crate::logic::store::{start_program_store_with_path, ProgramStore};
-use crate::mqtt::publisher::MqttPublisher;
-use crate::notification::router::AlarmRouter;
-use crate::plugin::{BridgeRegistry, PluginRegistry};
-use crate::project::ProjectPaths;
+use bms_store_storage::export::publisher::ExportPublisher;
+use bms_store_storage::health::HealthRegistry;
+use bms_store_storage::logic::store::{start_program_store_with_path, ProgramStore};
+use bms_store_storage::mqtt::publisher::MqttPublisher;
+use bms_store_storage::notification::router::AlarmRouter;
+use bms_store_bridges::plugin::{BridgeRegistry, PluginRegistry};
+use bms_store_storage::project::ProjectPaths;
 use bms_store_storage::store::alarm_store::{start_alarm_engine_with_path, AlarmStore};
 #[cfg(feature = "cloud")]
 use bms_store_storage::store::cloud_store::{start_cloud_store_with_path, CloudStore};
@@ -38,7 +38,7 @@ use bms_store_storage::store::point_store::{PointStore, PointStoreProfileExt};
 use bms_store_storage::store::report_store::start_report_store_with_path;
 use bms_store_storage::store::schedule_store::{start_schedule_engine_with_path, ScheduleStore};
 use bms_store_storage::store::webhook_store::{start_webhook_store_with_path, WebhookStore};
-use crate::webhook::dispatcher::WebhookDispatcher;
+use bms_store_storage::webhook::dispatcher::WebhookDispatcher;
 
 /// Core model state — the platform data layer.
 pub struct ModelState {
@@ -84,7 +84,7 @@ pub struct Platform {
     pub shutdown: tokio_util::sync::CancellationToken,
     /// Shared lock on Atlas matcher — same instance as DiscoveryService holds.
     #[cfg(feature = "atlas")]
-    pub atlas_lock: Arc<std::sync::RwLock<Option<Arc<crate::atlas::matcher::AtlasMatcher>>>>,
+    pub atlas_lock: Arc<std::sync::RwLock<Option<Arc<bms_store_storage::atlas::matcher::AtlasMatcher>>>>,
 }
 
 /// Bridge handles for write routing.
@@ -200,7 +200,7 @@ pub struct SharedPlatform {
     /// Shared lock on the Atlas matcher — allows the GUI to swap it at runtime.
     /// The same lock is shared with the DiscoveryService for live updates.
     #[cfg(feature = "atlas")]
-    pub atlas_lock: Arc<std::sync::RwLock<Option<Arc<crate::atlas::matcher::AtlasMatcher>>>>,
+    pub atlas_lock: Arc<std::sync::RwLock<Option<Arc<bms_store_storage::atlas::matcher::AtlasMatcher>>>>,
 }
 
 impl Platform {
@@ -270,7 +270,7 @@ pub async fn init_platform(
     // project.json UUID when available (empty string in legacy mode), so
     // multi-site supervisor can distinguish per-site events in a shared
     // journal later (Phase 2) without schema changes.
-    let site_id: String = crate::project::load_project_meta(&paths.root)
+    let site_id: String = bms_store_storage::project::load_project_meta(&paths.root)
         .map(|m| m.id)
         .unwrap_or_default();
 
@@ -362,7 +362,7 @@ pub async fn init_platform(
 
     // Seed built-in FDD rules
     {
-        let builtin_rules = crate::fdd::rules::builtin_fdd_rules();
+        let builtin_rules = bms_store_storage::fdd::rules::builtin_fdd_rules();
         let _ = fdd_store.seed_builtin_rules(builtin_rules).await;
     }
 
@@ -438,7 +438,7 @@ pub async fn init_platform(
     let modbus_base = ModbusBridge::new()
         .with_modbus_config(modbus_config)
         .with_event_bus(event_bus.clone());
-    let mut modbus = crate::bridge::modbus::with_loaded_devices(modbus_base, &loaded.devices);
+    let mut modbus = bms_store_bridges::bridge::modbus::with_loaded_devices(modbus_base, &loaded.devices);
     bridge_report.modbus = match modbus.start(point_store.clone()).await {
         Ok(()) => BridgeStartStatus::Ok,
         Err(e) => {
@@ -458,14 +458,14 @@ pub async fn init_platform(
     // safe defaults (None / empty) rather than panics.
     #[cfg(feature = "wasm-plugins")]
     let wasm_runtime: Option<std::sync::Arc<opencrate_plugin_wasm::WasmPluginRuntime>> = {
-        let plugin_settings = crate::plugin::load_plugin_settings(&paths.data_dir);
+        let plugin_settings = bms_store_bridges::plugin::load_plugin_settings(&paths.data_dir);
         // Plugin KV store: single SQLite file shared by every plugin, each
         // plugin namespaced by id. `open` creates the file if missing; if
         // open fails we log and fall through with storage = None (plugins
         // get an error back from storage.* calls, no crash).
         let storage: Option<std::sync::Arc<dyn opencrate_plugin_wasm::PluginStorage>> =
-            match crate::plugin::storage::SqlitePluginStorage::shared(
-                &crate::plugin::storage::SqlitePluginStorage::default_path(&paths.data_dir),
+            match bms_store_bridges::plugin::storage::SqlitePluginStorage::shared(
+                &bms_store_bridges::plugin::storage::SqlitePluginStorage::default_path(&paths.data_dir),
             ) {
                 Ok(s) => Some(s),
                 Err(e) => {
@@ -504,7 +504,7 @@ pub async fn init_platform(
                             // a directory whose name contains path traversal
                             // or shell metacharacters before we pass it to
                             // the loader as a plugin identifier.
-                            if let Err(e) = crate::plugin::archive::validate_plugin_id(&plugin_id) {
+                            if let Err(e) = bms_store_bridges::plugin::archive::validate_plugin_id(&plugin_id) {
                                 tracing::warn!(
                                     plugin = %plugin_id,
                                     "Refusing to load plugin with invalid id: {e}"
@@ -585,14 +585,14 @@ pub async fn init_platform(
     // Conditionally load the BAS Atlas matcher for richer auto-tagging
     #[cfg(feature = "atlas")]
     {
-        let plugin_settings = crate::plugin::load_plugin_settings(&paths.data_dir);
+        let plugin_settings = bms_store_bridges::plugin::load_plugin_settings(&paths.data_dir);
         let atlas_disabled = plugin_settings.disabled.contains(&"atlas".to_string());
         let atlas_path = paths.db_path("bas-atlas.db");
         if atlas_disabled {
             tracing::debug!("Atlas plugin disabled by user");
-        } else if crate::atlas::db::AtlasDb::is_available(&atlas_path) {
-            match crate::atlas::db::AtlasDb::open(&atlas_path) {
-                Ok(db) => match crate::atlas::matcher::AtlasMatcher::load(&db) {
+        } else if bms_store_storage::atlas::db::AtlasDb::is_available(&atlas_path) {
+            match bms_store_storage::atlas::db::AtlasDb::open(&atlas_path) {
+                Ok(db) => match bms_store_storage::atlas::matcher::AtlasMatcher::load(&db) {
                     Ok(matcher) => {
                         let m = Arc::new(matcher);
                         tracing::info!(
@@ -662,13 +662,13 @@ pub async fn init_platform(
 
     // Start report scheduler (reads SMTP config from ReportStore at send time)
     {
-        let report_engine = std::sync::Arc::new(crate::reporting::engine::ReportEngine::new(
+        let report_engine = std::sync::Arc::new(bms_store_storage::reporting::engine::ReportEngine::new(
             history_store.clone(),
             alarm_store.clone(),
             point_store.clone(),
             node_store.clone(),
         ));
-        let report_scheduler = crate::reporting::scheduler::ReportScheduler::new(
+        let report_scheduler = bms_store_storage::reporting::scheduler::ReportScheduler::new(
             report_store.clone(),
             report_engine,
             project_name.clone(),
@@ -678,14 +678,14 @@ pub async fn init_platform(
     }
 
     // Start energy rollup scheduler
-    crate::energy::scheduler::start_energy_rollup_scheduler(
+    bms_store_storage::energy::scheduler::start_energy_rollup_scheduler(
         energy_store.clone(),
         history_store.clone(),
         shutdown.clone(),
     );
 
     // Start FDD evaluation engine
-    crate::fdd::engine::FddEngine::new(
+    bms_store_storage::fdd::engine::FddEngine::new(
         fdd_store.clone(),
         node_store.clone(),
         point_store.clone(),

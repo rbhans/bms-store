@@ -11,7 +11,7 @@
 
 use dioxus::prelude::*;
 
-use crate::auth::AllRolePermissions;
+use bms_store_storage::auth::AllRolePermissions;
 use crate::gui::state::CloseAction;
 use crate::platform::SharedPlatform;
 use bms_store_storage::store::supervisor_user_store::SiteGrant;

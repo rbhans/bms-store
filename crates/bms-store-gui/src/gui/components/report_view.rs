@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
+use bms_store_storage::auth::Permission;
 use crate::gui::state::AppState;
-use crate::reporting::templates::template_for_type;
+use bms_store_storage::reporting::templates::template_for_type;
 use bms_store_storage::store::report_store::{
     ExecutionStatus, ReportConfig, ReportDefinition, ReportExecution, ReportFrequency,
     ReportRecipient, ReportSchedule, ReportType, TimeRangeKind,
@@ -630,7 +630,7 @@ fn HistoryTab(can_manage: bool) -> Element {
                                             let rs = rs.clone();
                                             let name = def_name.clone();
                                             let audit = audit.clone();
-                                            let engine = crate::reporting::engine::ReportEngine::new(
+                                            let engine = bms_store_storage::reporting::engine::ReportEngine::new(
                                                 hs.clone(), als.clone(), ps.clone(), ns.clone(),
                                             );
                                             spawn(async move {

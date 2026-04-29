@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::bridge::modbus::ModbusBridge;
-use crate::config::profile::ModbusRegisterType;
+use bms_store_bridges::bridge::modbus::ModbusBridge;
+use bms_store_storage::config::profile::ModbusRegisterType;
 use crate::gui::state::AppState;
 
 #[component]

@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::gui::state::{ActiveView, AppState};
-use crate::weather::config::TemperatureUnit;
+use bms_store_storage::weather::config::TemperatureUnit;
 
 /// Compact weather display for the toolbar: condition icon + temperature + humidity.
 /// Clickable to navigate to the full Weather view.

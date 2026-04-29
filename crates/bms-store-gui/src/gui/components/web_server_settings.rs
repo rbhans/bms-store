@@ -1,12 +1,12 @@
 use dioxus::prelude::*;
 
-use crate::config::scenario::WebServerConfig;
+use bms_store_storage::config::scenario::WebServerConfig;
 use crate::gui::state::AppState;
 
 /// Load web server config from the project data directory.
 /// Falls back to scenario settings, then defaults.
 pub fn load_web_server_config(
-    paths: &crate::project::ProjectPaths,
+    paths: &bms_store_storage::project::ProjectPaths,
     scenario_cfg: Option<&WebServerConfig>,
 ) -> WebServerConfig {
     let path = paths.data_dir.join("web_server.json");
@@ -18,7 +18,7 @@ pub fn load_web_server_config(
 }
 
 /// Save web server config to the project data directory.
-pub fn save_web_server_config(paths: &crate::project::ProjectPaths, config: &WebServerConfig) {
+pub fn save_web_server_config(paths: &bms_store_storage::project::ProjectPaths, config: &WebServerConfig) {
     let path = paths.data_dir.join("web_server.json");
     if let Ok(json) = serde_json::to_string_pretty(config) {
         let _ = std::fs::write(path, json);

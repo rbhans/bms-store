@@ -1,9 +1,9 @@
 use dioxus::prelude::*;
 
-use crate::atlas::db::AtlasDb;
-use crate::atlas::matcher::AtlasMatcher;
-use crate::atlas::model::AtlasStats;
-use crate::atlas::sync;
+use bms_store_storage::atlas::db::AtlasDb;
+use bms_store_storage::atlas::matcher::AtlasMatcher;
+use bms_store_storage::atlas::model::AtlasStats;
+use bms_store_storage::atlas::sync;
 use crate::gui::state::AppState;
 use std::sync::Arc;
 

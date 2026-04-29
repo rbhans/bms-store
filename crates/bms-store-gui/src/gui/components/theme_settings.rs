@@ -49,7 +49,7 @@ pub fn ThemeSettingsView() -> Element {
                                 if new_name.is_empty() {
                                     return;
                                 }
-                                match crate::project::rename_project(&project_id, &new_name, &project_root) {
+                                match bms_store_storage::project::rename_project(&project_id, &new_name, &project_root) {
                                     Ok(()) => {
                                         state.project_meta.name = new_name;
                                         name_saved.set(true);

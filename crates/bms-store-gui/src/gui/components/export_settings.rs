@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
-use crate::export::{ConnectorType, ExportConnectorConfig, ExportStatus};
+use bms_store_storage::auth::Permission;
+use bms_store_storage::export::{ConnectorType, ExportConnectorConfig, ExportStatus};
 use crate::gui::state::AppState;
 use bms_store_storage::store::audit_store::{AuditAction, AuditEntryBuilder};
 

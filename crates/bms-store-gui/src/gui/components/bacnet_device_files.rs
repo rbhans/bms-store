@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::bridge::bacnet::BacnetNetworks;
+use bms_store_bridges::bridge::bacnet::BacnetNetworks;
 use crate::gui::state::AppState;
 use rustbac_client::{AtomicReadFileResult, AtomicWriteFileResult};
 

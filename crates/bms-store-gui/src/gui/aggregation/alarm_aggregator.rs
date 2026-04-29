@@ -3,7 +3,7 @@
 //! The supervisor holds N per-site stores, but a Phase 2 supervisor can also
 //! hold N HTTP-backed remote stores in the same vector. To accommodate both,
 //! aggregator sources are typed against the `SiteAlarmStore` trait — defined
-//! in `crate::aggregation::alarm` so it is reachable from the supervisor
+//! in `crate::gui::aggregation::alarm` so it is reachable from the supervisor
 //! module without depending on `gui` (which is feature-gated).
 //!
 //! Per-site errors are captured into a status map instead of failing the whole
@@ -14,8 +14,8 @@ use std::sync::Arc;
 
 use futures::future::join_all;
 
-pub use crate::aggregation::alarm::SiteAlarmStore;
-pub use crate::aggregation::types::{AggregatorError, SiteActiveAlarm, SiteAlarmEvent};
+pub use crate::gui::aggregation::alarm::SiteAlarmStore;
+pub use crate::gui::aggregation::types::{AggregatorError, SiteActiveAlarm, SiteAlarmEvent};
 use bms_store_storage::store::alarm_store::AlarmHistoryQuery;
 
 // ----------------------------------------------------------------

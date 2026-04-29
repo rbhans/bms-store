@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
-use crate::config::profile::PointAccess;
+use bms_store_storage::auth::Permission;
+use bms_store_storage::config::profile::PointAccess;
 use crate::gui::state::AppState;
 
 use super::alarm_view::PointAlarmSection;

@@ -5,7 +5,7 @@ use std::time::Duration;
 use rustbac_client::{BroadcastDistributionEntry, DiscoveredObject, ForeignDeviceTableEntry};
 use rustbac_core::types::{ObjectId, ObjectType};
 
-use crate::bridge::bacnet::BacnetNetworks;
+use bms_store_bridges::bridge::bacnet::BacnetNetworks;
 use crate::gui::state::AppState;
 
 #[component]

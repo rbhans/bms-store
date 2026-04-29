@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
 
 use crate::gui::state::AppState;
-use crate::weather::config::{TemperatureUnit, WeatherConfig};
-use crate::weather::model::*;
+use bms_store_storage::weather::config::{TemperatureUnit, WeatherConfig};
+use bms_store_storage::weather::model::*;
 
 #[component]
 pub fn WeatherView() -> Element {

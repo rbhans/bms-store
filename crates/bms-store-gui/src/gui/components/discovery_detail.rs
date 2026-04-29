@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use dioxus::prelude::*;
 
-use crate::bridge::modbus::ModbusBridge;
-use crate::config::profile::{match_profile, DeviceProfile};
-use crate::discovery::model::{DeviceState, DiscoveredDevice, DiscoveredPoint, PointKindHint};
+use bms_store_bridges::bridge::modbus::ModbusBridge;
+use bms_store_storage::config::profile::{match_profile, DeviceProfile};
+use bms_store_storage::discovery::model::{DeviceState, DiscoveredDevice, DiscoveredPoint, PointKindHint};
 use crate::gui::state::AppState;
 
 use super::discovery_utils::{
@@ -40,7 +40,7 @@ pub(crate) fn render_device_detail(
     mut point_kind_editing: Signal<PointKindHint>,
     mut bulk_units_draft: Signal<String>,
     mut bulk_status: Signal<Option<String>>,
-    event_infos: Signal<Vec<crate::bridge::bacnet::BacnetEventInfo>>,
+    event_infos: Signal<Vec<bms_store_bridges::bridge::bacnet::BacnetEventInfo>>,
     trend_logs: Signal<Vec<(u32, String)>>,
     create_object_type: Signal<String>,
     delete_object_input: Signal<String>,
@@ -604,7 +604,7 @@ pub(crate) fn render_device_detail(
                                                     class: "btn btn-sm",
                                                     onclick: move |_| {
                                                         let filtered: std::collections::HashSet<String> = selected_points_signal.read().iter()
-                                                            .filter(|p| p.point_kind == crate::discovery::model::PointKindHint::Analog)
+                                                            .filter(|p| p.point_kind == bms_store_storage::discovery::model::PointKindHint::Analog)
                                                             .map(|p| p.id.clone()).collect();
                                                         selected_point_ids.set(filtered);
                                                     },
@@ -614,7 +614,7 @@ pub(crate) fn render_device_detail(
                                                     class: "btn btn-sm",
                                                     onclick: move |_| {
                                                         let filtered: std::collections::HashSet<String> = selected_points_signal.read().iter()
-                                                            .filter(|p| p.point_kind == crate::discovery::model::PointKindHint::Binary)
+                                                            .filter(|p| p.point_kind == bms_store_storage::discovery::model::PointKindHint::Binary)
                                                             .map(|p| p.id.clone()).collect();
                                                         selected_point_ids.set(filtered);
                                                     },

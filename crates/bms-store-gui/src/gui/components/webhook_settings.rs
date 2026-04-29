@@ -1,9 +1,9 @@
 use dioxus::prelude::*;
 
-use crate::auth::Permission;
+use bms_store_storage::auth::Permission;
 use crate::gui::state::AppState;
 use bms_store_storage::store::audit_store::{AuditAction, AuditEntryBuilder};
-use crate::webhook::model::{Provider, WebhookDelivery, WebhookEndpoint};
+use bms_store_storage::webhook::model::{Provider, WebhookDelivery, WebhookEndpoint};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum WebhookTab {
@@ -445,8 +445,8 @@ fn EndpointsTab(can_manage: bool) -> Element {
                                                                 let ep_secret = ep_secret.clone();
                                                                 spawn(async move {
                                                                     let provider = Provider::from_str(&ep_provider).unwrap_or(Provider::Generic);
-                                                                    let payload = crate::webhook::model::WebhookPayload {
-                                                                        event_type: crate::webhook::model::WebhookEventType::AlarmRaised,
+                                                                    let payload = bms_store_storage::webhook::model::WebhookPayload {
+                                                                        event_type: bms_store_storage::webhook::model::WebhookEventType::AlarmRaised,
                                                                         alarm_id: Some(0),
                                                                         node_id: Some("test/test-point".into()),
                                                                         device_id: Some("test".into()),
@@ -461,7 +461,7 @@ fn EndpointsTab(can_manage: bool) -> Element {
                                                                             .as_millis() as i64,
                                                                         project_name: "OpenCrate".into(),
                                                                     };
-                                                                    let formatted = crate::webhook::providers::format_for_provider(
+                                                                    let formatted = bms_store_storage::webhook::providers::format_for_provider(
                                                                         provider, &payload, ep_secret.as_deref(), &ep_url,
                                                                     );
                                                                     let client = reqwest::Client::builder()

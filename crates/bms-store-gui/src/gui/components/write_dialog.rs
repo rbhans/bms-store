@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::bridge::bacnet::BacnetNetworks;
-use crate::config::profile::{PointKind, PointValue};
+use bms_store_bridges::bridge::bacnet::BacnetNetworks;
+use bms_store_storage::config::profile::{PointKind, PointValue};
 use crate::gui::state::{AppState, WriteCommand};
 
 /// BACnet priority level labels.
@@ -203,12 +203,12 @@ pub fn WriteDialog(device_id: String, point_id: String) -> Element {
                 let bacnet_info = profile_point.and_then(|p| {
                     let b = p.protocols.as_ref()?.bacnet.as_ref()?;
                     let obj_type = match b.object_type {
-                        crate::config::profile::BacnetObjectType::AnalogOutput => Some(rustbac_core::types::ObjectType::AnalogOutput),
-                        crate::config::profile::BacnetObjectType::AnalogValue => Some(rustbac_core::types::ObjectType::AnalogValue),
-                        crate::config::profile::BacnetObjectType::BinaryOutput => Some(rustbac_core::types::ObjectType::BinaryOutput),
-                        crate::config::profile::BacnetObjectType::BinaryValue => Some(rustbac_core::types::ObjectType::BinaryValue),
-                        crate::config::profile::BacnetObjectType::MultistateOutput => Some(rustbac_core::types::ObjectType::MultiStateOutput),
-                        crate::config::profile::BacnetObjectType::MultistateValue => Some(rustbac_core::types::ObjectType::MultiStateValue),
+                        bms_store_storage::config::profile::BacnetObjectType::AnalogOutput => Some(rustbac_core::types::ObjectType::AnalogOutput),
+                        bms_store_storage::config::profile::BacnetObjectType::AnalogValue => Some(rustbac_core::types::ObjectType::AnalogValue),
+                        bms_store_storage::config::profile::BacnetObjectType::BinaryOutput => Some(rustbac_core::types::ObjectType::BinaryOutput),
+                        bms_store_storage::config::profile::BacnetObjectType::BinaryValue => Some(rustbac_core::types::ObjectType::BinaryValue),
+                        bms_store_storage::config::profile::BacnetObjectType::MultistateOutput => Some(rustbac_core::types::ObjectType::MultiStateOutput),
+                        bms_store_storage::config::profile::BacnetObjectType::MultistateValue => Some(rustbac_core::types::ObjectType::MultiStateValue),
                         _ => None,
                     };
                     obj_type.map(|ot| (ot, b.instance))
@@ -223,7 +223,7 @@ pub fn WriteDialog(device_id: String, point_id: String) -> Element {
                     let object_id = rustbac_core::types::ObjectId::new(obj_type, obj_inst);
                     let mut pa_expanded = use_signal(|| false);
                     let mut pa_loading = use_signal(|| false);
-                    let mut pa_data: Signal<Option<crate::bridge::bacnet::PriorityArrayInfo>> = use_signal(|| None);
+                    let mut pa_data: Signal<Option<bms_store_bridges::bridge::bacnet::PriorityArrayInfo>> = use_signal(|| None);
                     let mut pa_error: Signal<Option<String>> = use_signal(|| None);
                     let mut relinquish_default: Signal<Option<String>> = use_signal(|| None);
 

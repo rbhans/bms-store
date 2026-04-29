@@ -1,7 +1,7 @@
 //! Fan-out energy queries across multiple sites.
 //!
 //! The `SiteEnergyStore` trait + blanket impl for `EnergyStore` lives in
-//! `crate::aggregation::energy` so the supervisor's HTTP-backed remote store
+//! `crate::gui::aggregation::energy` so the supervisor's HTTP-backed remote store
 //! can implement it without depending on `gui`.
 //!
 //! Each per-site KPI computation issues N+1 calls (1 list_meters + N
@@ -14,8 +14,8 @@ use std::sync::Arc;
 
 use futures::future::join_all;
 
-pub use crate::aggregation::energy::SiteEnergyStore;
-pub use crate::aggregation::types::{AggregatorError, SiteDailyRollup, SiteMeter};
+pub use crate::gui::aggregation::energy::SiteEnergyStore;
+pub use crate::gui::aggregation::types::{AggregatorError, SiteDailyRollup, SiteMeter};
 
 // ----------------------------------------------------------------
 // Aggregator
