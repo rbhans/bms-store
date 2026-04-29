@@ -1,9 +1,74 @@
 use dioxus::prelude::*;
 
 use crate::gui::state::AppState;
-use bms_store_bridges::plugin::archive::{self, PluginManifest, WasmSection};
-#[cfg(feature = "wasm-plugins")]
-use bms_store_bridges::plugin::service;
+use bms_store_bridges::plugin::archive::{self, PluginManifest};
+// TODO(bms-store-gui): WasmSection and the wasm-plugins service module are not
+// part of the bms-store-bridges public surface. The WASM plugin runtime UI
+// (enable/disable/reload/uninstall/install-from-archive) is stubbed out until
+// the wasm-plugins feature is re-introduced. See Task 11/12 cleanup plan.
+/// Stub for the WASM plugin section metadata — real type lives in the wasm-plugins crate.
+#[derive(Clone, Debug, Default)]
+pub struct WasmSection {
+    pub exports: Vec<String>,
+    pub abi_version: String,
+}
+
+// stub service module so call sites below compile; all stubs log a warning.
+mod service {
+    #[allow(dead_code)]
+    pub struct WasmOutcome {
+        pub manifest: bms_store_bridges::plugin::archive::PluginManifest,
+        pub load_error: Option<String>,
+    }
+
+    #[allow(dead_code)]
+    #[derive(Default)]
+    pub struct ReloadOutcome {
+        pub status: String,
+        pub message: Option<String>,
+        pub load_error: Option<String>,
+    }
+
+    pub async fn install_plugin_archive(
+        _path: &std::path::Path,
+        _data_dir: &std::path::Path,
+        _rt: Option<&std::sync::Arc<()>>,
+    ) -> Result<WasmOutcome, String> {
+        Err("WASM plugin service not available in this build (wasm-plugins feature disabled)".into())
+    }
+
+    pub async fn enable_wasm_plugin(
+        _data_dir: &std::path::Path,
+        _id: &str,
+        _rt: Option<&std::sync::Arc<()>>,
+    ) -> Result<ReloadOutcome, String> {
+        Err("WASM plugin service not available in this build".into())
+    }
+
+    pub fn disable_wasm_plugin(
+        _data_dir: &std::path::Path,
+        _id: &str,
+        _rt: Option<&std::sync::Arc<()>>,
+    ) -> Result<(), String> {
+        Err("WASM plugin service not available in this build".into())
+    }
+
+    pub async fn reload_wasm_plugin(
+        _data_dir: &std::path::Path,
+        _id: &str,
+        _rt: &std::sync::Arc<()>,
+    ) -> Result<ReloadOutcome, String> {
+        Err("WASM plugin service not available in this build".into())
+    }
+
+    pub fn uninstall_wasm_plugin(
+        _data_dir: &std::path::Path,
+        _id: &str,
+        _rt: Option<&std::sync::Arc<()>>,
+    ) -> Result<(), String> {
+        Err("WASM plugin service not available in this build".into())
+    }
+}
 use bms_store_bridges::plugin::{
     load_plugin_settings, plugin_catalog, resolve_plugin_status, PluginInfo, PluginSettings,
     PluginStatus,
@@ -39,7 +104,8 @@ pub fn PluginManagerView() -> Element {
                     class: "config-btn",
                     onclick: {
                         let data_dir = state.project_paths.data_dir.clone();
-                        let rt = state.wasm_runtime.clone();
+                        // TODO(bms-store-gui): wasm_runtime not available without wasm-plugins feature.
+                        let rt: Option<std::sync::Arc<()>> = None;
                         move |_| {
                             let data_dir = data_dir.clone();
                             let rt = rt.clone();
@@ -149,7 +215,8 @@ pub fn PluginManagerView() -> Element {
                                                         onclick: {
                                                             let pid = pid.clone();
                                                             let data_dir = state.project_paths.data_dir.clone();
-                                                            let rt = state.wasm_runtime.clone();
+                                                            // TODO(bms-store-gui): wasm_runtime not available without wasm-plugins feature.
+                        let rt: Option<std::sync::Arc<()>> = None;
                                                             move |_| {
                                                                 let pid = pid.clone();
                                                                 let data_dir = data_dir.clone();
@@ -183,7 +250,8 @@ pub fn PluginManagerView() -> Element {
                                                         onclick: {
                                                             let pid = pid.clone();
                                                             let data_dir = state.project_paths.data_dir.clone();
-                                                            let rt = state.wasm_runtime.clone();
+                                                            // TODO(bms-store-gui): wasm_runtime not available without wasm-plugins feature.
+                        let rt: Option<std::sync::Arc<()>> = None;
                                                             move |_| {
                                                                 match service::disable_wasm_plugin(&data_dir, &pid, rt.as_ref()) {
                                                                     Ok(()) => {
@@ -210,7 +278,8 @@ pub fn PluginManagerView() -> Element {
                                                         onclick: {
                                                             let pid = pid.clone();
                                                             let data_dir = state.project_paths.data_dir.clone();
-                                                            let rt = state.wasm_runtime.clone();
+                                                            // TODO(bms-store-gui): wasm_runtime not available without wasm-plugins feature.
+                        let rt: Option<std::sync::Arc<()>> = None;
                                                             move |_| {
                                                                 let pid = pid.clone();
                                                                 let data_dir = data_dir.clone();
@@ -251,7 +320,8 @@ pub fn PluginManagerView() -> Element {
                                                         onclick: {
                                                         let pid = pid.clone();
                                                         let data_dir = state.project_paths.data_dir.clone();
-                                                        let rt = state.wasm_runtime.clone();
+                                                        // TODO(bms-store-gui): wasm_runtime not available without wasm-plugins feature.
+                        let rt: Option<std::sync::Arc<()>> = None;
                                                         move |_| {
                                                             match service::uninstall_wasm_plugin(&data_dir, &pid, rt.as_ref()) {
                                                                 Ok(()) => {
@@ -347,7 +417,8 @@ fn PluginRow(
                             onclick: {
                                 let pid = plugin_id.clone();
                                 let data_dir = state.project_paths.data_dir.clone();
-                                let rt = state.wasm_runtime.clone();
+                                // TODO(bms-store-gui): wasm_runtime not available without wasm-plugins feature.
+                        let rt: Option<std::sync::Arc<()>> = None;
                                 move |_| {
                                     let pid = pid.clone();
                                     let data_dir = data_dir.clone();
@@ -395,7 +466,8 @@ fn PluginRow(
                             onclick: {
                                 let pid = plugin_id.clone();
                                 let data_dir = state.project_paths.data_dir.clone();
-                                let rt = state.wasm_runtime.clone();
+                                // TODO(bms-store-gui): wasm_runtime not available without wasm-plugins feature.
+                        let rt: Option<std::sync::Arc<()>> = None;
                                 move |_| {
                                     match service::disable_wasm_plugin(&data_dir, &pid, rt.as_ref()) {
                                         Ok(()) => {
@@ -429,7 +501,8 @@ fn PluginRow(
                             onclick: {
                                 let pid = plugin_id.clone();
                                 let data_dir = state.project_paths.data_dir.clone();
-                                let rt = state.wasm_runtime.clone();
+                                // TODO(bms-store-gui): wasm_runtime not available without wasm-plugins feature.
+                        let rt: Option<std::sync::Arc<()>> = None;
                                 move |_| {
                                     match service::uninstall_wasm_plugin(&data_dir, &pid, rt.as_ref()) {
                                         Ok(()) => {
@@ -454,29 +527,15 @@ fn PluginRow(
 }
 
 /// Discover WASM plugins installed in data/plugins/*/plugin.toml.
-fn discover_wasm_plugins(data_dir: &std::path::Path) -> Vec<(String, PluginManifest, WasmSection)> {
-    let mut results = Vec::new();
-    let plugins_dir = data_dir.join("plugins");
-    let Ok(entries) = std::fs::read_dir(&plugins_dir) else {
-        return results;
-    };
-    for entry in entries.flatten() {
-        let manifest_path = entry.path().join("plugin.toml");
-        if !manifest_path.exists() {
-            continue;
-        }
-        let Ok(contents) = std::fs::read_to_string(&manifest_path) else {
-            continue;
-        };
-        if let Ok(manifest) = archive::read_manifest_from_str(&contents) {
-            if let Some(wasm) = manifest.wasm.clone() {
-                let plugin_id = entry.file_name().to_string_lossy().to_string();
-                results.push((plugin_id, manifest, wasm));
-            }
-        }
-    }
-    results.sort_by(|a, b| a.1.plugin.name.cmp(&b.1.plugin.name));
-    results
+///
+/// TODO(bms-store-gui): `archive::read_manifest_from_str` and `PluginManifest::wasm`
+/// are not part of the bms-store-bridges public surface (they belong to the
+/// wasm-plugins feature that was not extracted). Returns empty until the
+/// wasm-plugins feature is re-introduced in bms-store-bridges.
+fn discover_wasm_plugins(_data_dir: &std::path::Path) -> Vec<(String, PluginManifest, WasmSection)> {
+    // Stubbed: WASM plugin discovery requires `archive::read_manifest_from_str`
+    // and `PluginManifest::wasm` which are absent without wasm-plugins feature.
+    Vec::new()
 }
 
 /// Check if a plugin's data is installed in the current project.

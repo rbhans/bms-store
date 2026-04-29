@@ -34,7 +34,7 @@ use bms_store_storage::store::history_store::{start_history_collector_with_path,
 use bms_store_storage::store::mqtt_store::{start_mqtt_store_with_path, MqttStore};
 use bms_store_storage::store::node_store::{start_node_store_with_path, NodeStore};
 use bms_store_storage::store::notification_store::{start_notification_store_with_path, NotificationStore};
-use bms_store_storage::store::point_store::{PointStore, PointStoreProfileExt};
+use bms_store_storage::store::point_store::PointStore;
 use bms_store_storage::store::report_store::start_report_store_with_path;
 use bms_store_storage::store::schedule_store::{start_schedule_engine_with_path, ScheduleStore};
 use bms_store_storage::store::webhook_store::{start_webhook_store_with_path, WebhookStore};
@@ -396,7 +396,7 @@ pub async fn init_platform(
             .with_network_id(network_id.clone())
             .with_bacnet_config(config.clone())
             .with_event_bus(event_bus.clone())
-            .with_history_backend(Arc::new(history_store.clone()));
+            .with_history_store(history_store.clone());
 
         // Apply per-network monitor interval
         if let Some(secs) = net_cfg.and_then(|n| n.monitor_interval_secs) {
@@ -438,7 +438,7 @@ pub async fn init_platform(
     let modbus_base = ModbusBridge::new()
         .with_modbus_config(modbus_config)
         .with_event_bus(event_bus.clone());
-    let mut modbus = bms_store_bridges::bridge::modbus::with_loaded_devices(modbus_base, &loaded.devices);
+    let mut modbus = modbus_base.from_loaded_devices(&loaded.devices);
     bridge_report.modbus = match modbus.start(point_store.clone()).await {
         Ok(()) => BridgeStartStatus::Ok,
         Err(e) => {

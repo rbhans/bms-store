@@ -210,8 +210,7 @@ pub(crate) fn render_bacnet_management(
                                                     class: "discovery-action-btn",
                                                     onclick: move |_| {
                                                         let bridge = backfill_bridge.clone();
-                                                        let history: std::sync::Arc<dyn bms_store::plugin::HistoryBackend> =
-                                                            std::sync::Arc::new(backfill_history.clone());
+                                                        let history = backfill_history.clone();
                                                         let dk = dev_key_tl.clone();
                                                         let tn = tl_n.clone();
                                                         spawn(async move {

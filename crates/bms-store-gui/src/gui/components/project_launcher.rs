@@ -8,11 +8,56 @@ use bms_store_storage::project::{
     create_project, delete_project, export_project, import_project, load_registry,
     migrate_legacy_if_needed, opencrate_home, validate_project_path, ProjectPaths,
 };
-use bms_store_storage::store::supervisor_user_store::{RemoteSiteRow, SupervisorUserStore};
+// TODO(bms-store-gui): supervisor_user_store, RemoteSiteRow, SupervisorUserStore removed from
+// bms_store_storage in the bms-store extraction. The "Supervisor" tab and remote-site
+// management functionality is stubbed until Tasks 11/12 implement the replacement.
 use bms_store_storage::store::user_store::start_user_store_with_path;
-use crate::supervisor::crypto::{
-    decrypt_string, default_machine_key_path, encrypt_string, load_or_create_machine_key,
-};
+// TODO(bms-store-gui): crate::supervisor::crypto removed in extraction — crypto helpers
+// (decrypt_string, encrypt_string, load_or_create_machine_key) are stubbed.
+
+// Stub types replacing supervisor_user_store imports
+#[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
+struct RemoteSiteRow {
+    pub config_id: String,
+    pub site_id: Option<String>,
+    pub name: String,
+    pub base_url: String,
+    pub auth_token_encrypted: Vec<u8>,
+    pub last_connected_ms: Option<i64>,
+    pub last_status: Option<String>,
+    pub created_ms: i64,
+}
+
+#[derive(Clone)]
+#[allow(dead_code)]
+struct SupervisorUserStore;
+
+#[allow(dead_code)]
+impl SupervisorUserStore {
+    fn open(_path: &std::path::Path) -> Result<Self, String> {
+        Err("SupervisorUserStore not available in this build".into())
+    }
+    async fn list_remote_sites(&self) -> Vec<RemoteSiteRow> { Vec::new() }
+    async fn delete_remote_site(&self, _id: &str) -> Result<(), String> { Ok(()) }
+    async fn upsert_remote_site(&self, _row: RemoteSiteRow) -> Result<(), String> { Ok(()) }
+}
+
+// Stub crypto helpers
+#[allow(dead_code)]
+fn decrypt_string(_key: &[u8], _ciphertext: &[u8]) -> Result<String, String> {
+    Err("crypto not available".into())
+}
+#[allow(dead_code)]
+fn default_machine_key_path() -> std::path::PathBuf { std::path::PathBuf::new() }
+#[allow(dead_code)]
+fn encrypt_string(_key: &[u8], _plaintext: &str) -> Result<Vec<u8>, String> {
+    Err("crypto not available".into())
+}
+#[allow(dead_code)]
+fn load_or_create_machine_key(_path: &std::path::Path) -> Result<Vec<u8>, String> {
+    Err("machine key not available".into())
+}
 
 use super::remote_site_form::{RemoteSiteForm, RemoteSiteFormData};
 
