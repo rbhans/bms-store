@@ -805,7 +805,7 @@ fn DetailsPane() -> Element {
             if selected_point.is_some() {
                 PointDetail {}
             } else if let Some(dev_id) = selected_device {
-                DeviceSummary { key: "{dev_id}", device_id: dev_id }
+                DeviceSummary { key: "{dev_id}", device_id: dev_id.clone() }
             } else {
                 div { class: "point-detail-body",
                     p { class: "placeholder", "Select a zone or point to view details." }

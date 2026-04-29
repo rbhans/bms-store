@@ -519,10 +519,11 @@ pub fn PointTable() -> Element {
                             let gid_enter_h = group.id.clone();
                             let gid_leave_h = group.id.clone();
 
+                            let group_id_key = group_id.clone();
                             rsx! {
                                 // Group header row — spans all columns, just the name + edit controls
                                 tr {
-                                    key: "gh-{group_id}",
+                                    key: "gh-{group_id_key}",
                                     class: "{header_class}",
                                     onmouseenter: move |_| {
                                         if dragging_point.peek().is_some() {
@@ -790,10 +791,11 @@ pub fn PointTable() -> Element {
                             let gnames = group_names.clone();
                             let row_class = if is_selected { "point-row pinned selected" } else { "point-row pinned" };
                             let edit_row_class = if is_editing { format!("{row_class} draggable") } else { row_class.to_string() };
+                            let pid_key = pid.clone();
 
                             rsx! {
                                 tr {
-                                    key: "pin-{pid}",
+                                    key: "pin-{pid_key}",
                                     class: "{edit_row_class}",
 
                                     onclick: move |_| {
@@ -891,10 +893,11 @@ pub fn PointTable() -> Element {
                             let gnames = group_names.clone();
                             let row_class = if is_selected { "point-row selected" } else { "point-row" };
                             let edit_row_class = if is_editing { format!("{row_class} draggable") } else { row_class.to_string() };
+                            let pid_key = pid.clone();
 
                             rsx! {
                                 tr {
-                                    key: "{pid}",
+                                    key: "{pid_key}",
                                     class: "{edit_row_class}",
 
                                     onclick: move |_| {
