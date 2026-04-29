@@ -17,7 +17,7 @@ path = "src/main.rs"
 # Workspace data layer
 bms-core = { path = "../bms-core" }
 bms-store-storage = { path = "../bms-store-storage", features = ["atlas"] }
-bms-store-bridges = { path = "../bms-store-bridges" }
+bms-store-bridges = { path = "../bms-store-bridges", features = ["atlas"] }
 
 # UI
 dioxus = { version = "0.6", features = ["desktop"] }

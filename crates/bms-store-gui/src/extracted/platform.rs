@@ -9,8 +9,6 @@ use bms_store_storage::logic::store::ProgramStore;
 use bms_store_storage::project::ProjectPaths;
 use bms_store_storage::store::alarm_store::AlarmStore;
 use bms_store_storage::store::audit_store::AuditStore;
-#[cfg(feature = "cloud")]
-use bms_store_storage::store::cloud_store::CloudStore;
 use bms_store_storage::store::commissioning_store::CommissioningStore;
 use bms_store_storage::store::discovery_store::DiscoveryStore;
 use bms_store_storage::store::energy_store::EnergyStore;
@@ -58,14 +56,11 @@ pub struct SharedPlatform {
     pub override_store: OverrideStore,
     pub user_store: UserStore,
     pub audit_store: AuditStore,
-    #[cfg(feature = "cloud")]
-    pub cloud_store: CloudStore,
     pub shutdown: CancellationToken,
     pub discovery_service: Arc<DiscoveryService>,
     pub bridge_registry: Arc<BridgeRegistry>,
     pub plugin_registry: Arc<PluginRegistry>,
     /// Shared lock on the Atlas matcher — allows the GUI to swap it at runtime.
-    #[cfg(feature = "atlas")]
     pub atlas_lock: Arc<std::sync::RwLock<Option<Arc<bms_store_storage::atlas::matcher::AtlasMatcher>>>>,
 }
 
@@ -105,7 +100,6 @@ pub async fn init_platform(
     }
 
     // Stage 3: grab the atlas_lock from the discovery service before moving it.
-    #[cfg(feature = "atlas")]
     let atlas_lock = bridge_runtime.discovery_service.atlas_lock().clone();
 
     // Stage 4: compose SharedPlatform from the two runtimes.
@@ -133,8 +127,6 @@ pub async fn init_platform(
         override_store: storage.override_store,
         user_store: storage.user_store,
         audit_store: storage.audit_store,
-        #[cfg(feature = "cloud")]
-        cloud_store: storage.cloud_store,
         shutdown: storage.shutdown,
 
         // Bridge layer fields.
@@ -143,7 +135,6 @@ pub async fn init_platform(
         plugin_registry: bridge_runtime.plugin_registry,
 
         // Atlas — derived from discovery service before it was moved.
-        #[cfg(feature = "atlas")]
         atlas_lock,
     };
 

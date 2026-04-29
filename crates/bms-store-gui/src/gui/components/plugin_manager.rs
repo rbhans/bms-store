@@ -541,7 +541,6 @@ fn discover_wasm_plugins(_data_dir: &std::path::Path) -> Vec<(String, PluginMani
 /// Check if a plugin's data is installed in the current project.
 fn is_data_installed(state: &AppState, info: &PluginInfo) -> bool {
     match info.id {
-        #[cfg(feature = "atlas")]
         "atlas" => {
             let path = state.project_paths.db_path("bas-atlas.db");
             bms_store_storage::atlas::db::AtlasDb::is_available(&path)

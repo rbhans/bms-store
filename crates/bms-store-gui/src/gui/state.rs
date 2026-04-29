@@ -443,15 +443,8 @@ pub struct AppState {
     pub fdd_store: bms_store_storage::store::fdd_store::FddStore,
     /// Export store for database export connector configuration.
     pub export_store: bms_store_storage::store::export_store::ExportStore,
-    /// Cloud bridge store for cloud platform integration.
-    #[cfg(feature = "cloud")]
-    pub cloud_store: bms_store_storage::store::cloud_store::CloudStore,
     /// Platform health registry — shared across all subsystems.
     pub health: bms_store_storage::health::HealthRegistry,
-    /// Live WASM plugin runtime — holds all loaded plugin instances.
-    /// `None` when the `wasm-plugins` feature is disabled or init failed.
-    #[cfg(feature = "wasm-plugins")]
-    pub wasm_runtime: Option<std::sync::Arc<opencrate_plugin_wasm::WasmPluginRuntime>>,
     /// Currently logged-in user.
     pub current_user: Signal<Option<User>>,
     /// User store for authentication and user management.
@@ -472,7 +465,6 @@ pub struct AppState {
     pub sidebar_visible: Signal<bool>,
     /// BAS Atlas taxonomy matcher — shared with DiscoveryService.
     /// Writing to this lock immediately affects the live DiscoveryService.
-    #[cfg(feature = "atlas")]
     pub atlas_lock: Arc<std::sync::RwLock<Option<Arc<bms_store_storage::atlas::matcher::AtlasMatcher>>>>,
 }
 

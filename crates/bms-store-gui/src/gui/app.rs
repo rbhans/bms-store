@@ -284,8 +284,6 @@ pub(crate) fn ProjectApp(
         let eb = event_bus.clone();
         let wtx = write_tx.clone();
         let token = shutdown_token.clone();
-        #[cfg(feature = "wasm-plugins")]
-        let wasm_rt = plat.wasm_runtime.clone();
         move || {
             let write_cb: bms_store_storage::logic::engine::WriteCallback = std::sync::Arc::new(
                 move |node_id: &str,
@@ -306,8 +304,6 @@ pub(crate) fn ProjectApp(
                 point_store: pt_store,
                 event_bus: eb,
                 write_callback: Some(write_cb),
-                #[cfg(feature = "wasm-plugins")]
-                wasm_runtime: wasm_rt.clone(),
             };
             let handle = engine.start();
             tokio::spawn(async move {
@@ -442,11 +438,7 @@ pub(crate) fn ProjectApp(
         webhook_store: webhook_store.clone(),
         fdd_store: fdd_store.clone(),
         export_store: export_store.clone(),
-        #[cfg(feature = "cloud")]
-        cloud_store: plat.cloud_store.clone(),
         health: plat.health.clone(),
-        #[cfg(feature = "wasm-plugins")]
-        wasm_runtime: plat.wasm_runtime.clone(),
         current_user,
         user_store: user_store.clone(),
         role_permissions,
@@ -456,7 +448,6 @@ pub(crate) fn ProjectApp(
         theme_config,
         pending_config_section,
         sidebar_visible: use_signal(|| true),
-        #[cfg(feature = "atlas")]
         atlas_lock: plat.atlas_lock.clone(),
     });
     use_context_provider(|| app_state.clone());
@@ -551,105 +542,6 @@ pub(crate) fn ProjectApp(
 
     // Auto-start embedded API server when both desktop and api features are enabled.
     // Uses app_state (which already has clones of all stores) to avoid move conflicts.
-    #[cfg(feature = "api")]
-    {
-        let api_app = app_state.clone();
-        let api_paths = project_paths.clone();
-        let api_loaded = loaded.clone();
-        use_hook(move || {
-            spawn(async move {
-                use crate::api::{self, ApiState};
-                use bms_store_storage::backup::BackupScheduler;
-                use crate::gui::components::web_server_settings::load_web_server_config;
-                use bms_store_storage::store::override_store::start_override_store_with_path;
-
-                let override_store =
-                    start_override_store_with_path(&api_paths.db_path("overrides.db"));
-                let jwt_secret =
-                    api::load_or_create_jwt_secret(&api_paths.data_dir.join("api_secret.key"));
-                let backup = BackupScheduler::new(&api_app.project_meta.id, &api_paths.data_dir);
-                backup.start();
-
-                let web_cfg = api_loaded
-                    .config
-                    .settings
-                    .as_ref()
-                    .and_then(|s| s.web_server.clone());
-                let file_web_cfg = load_web_server_config(&api_paths, web_cfg.as_ref());
-
-                let api_addr: std::net::SocketAddr =
-                    format!("{}:{}", file_web_cfg.listen_addr, file_web_cfg.http_port)
-                        .parse()
-                        .unwrap_or_else(|_| "127.0.0.1:8080".parse().unwrap());
-
-                let tls_config = if file_web_cfg.https_enabled {
-                    match (
-                        file_web_cfg.cert_file.as_ref(),
-                        file_web_cfg.key_file.as_ref(),
-                    ) {
-                        (Some(cert), Some(key)) => {
-                            let https_addr: std::net::SocketAddr =
-                                format!("{}:{}", file_web_cfg.listen_addr, file_web_cfg.https_port)
-                                    .parse()
-                                    .unwrap_or_else(|_| "127.0.0.1:8443".parse().unwrap());
-                            Some(api::TlsConfig {
-                                addr: https_addr,
-                                cert_file: cert.clone(),
-                                key_file: key.clone(),
-                            })
-                        }
-                        _ => None,
-                    }
-                } else {
-                    None
-                };
-
-                let api_state = ApiState::from_stores(
-                    api_app.store.clone(),
-                    api_app.node_store.clone(),
-                    api_app.alarm_store.clone(),
-                    api_app.schedule_store.clone(),
-                    api_app.history_store.clone(),
-                    api_app.entity_store.clone(),
-                    api_app.discovery_store.clone(),
-                    api_app.discovery_service.clone(),
-                    api_app.program_store.clone(),
-                    api_app.event_bus.clone(),
-                    api_app.bridge_registry.clone(),
-                    api_app.user_store.clone(),
-                    api_app.audit_store.clone(),
-                    override_store,
-                    api_app.report_store.clone(),
-                    api_app.energy_store.clone(),
-                    api_app.webhook_store.clone(),
-                    api_app.fdd_store.clone(),
-                    api_app.export_store.clone(),
-                    #[cfg(feature = "cloud")]
-                    api_app.cloud_store.clone(),
-                    api_app.health.clone(),
-                    backup,
-                    jwt_secret,
-                    api_app.project_meta.name.clone(),
-                    api_app.project_paths.data_dir.clone(),
-                    #[cfg(feature = "wasm-plugins")]
-                    api_app.wasm_runtime.clone(),
-                );
-
-                tracing::info!(%api_addr, "Starting embedded API server");
-                if let Err(e) = api::start_api_server(
-                    api_state,
-                    api_addr,
-                    file_web_cfg.http_enabled,
-                    tls_config,
-                )
-                .await
-                {
-                    tracing::error!("Embedded API server error: {e}");
-                }
-            });
-        });
-    }
-
     // Status sync — EventBus-driven alarm flag projection + periodic stale check.
     // Lifetime is the view scope (restarts on remount).
     let sync_store = store.clone();
