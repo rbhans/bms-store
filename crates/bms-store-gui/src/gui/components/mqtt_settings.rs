@@ -3,8 +3,8 @@ use dioxus::prelude::*;
 use crate::auth::Permission;
 use crate::gui::state::AppState;
 use crate::mqtt::topic;
-use crate::store::audit_store::{AuditAction, AuditEntryBuilder};
-use crate::store::mqtt_store::{MqttBrokerConfig, MqttEventType, MqttTopicPattern};
+use bms_store_storage::store::audit_store::{AuditAction, AuditEntryBuilder};
+use bms_store_storage::store::mqtt_store::{MqttBrokerConfig, MqttEventType, MqttTopicPattern};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum MqttTab {

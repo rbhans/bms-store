@@ -365,7 +365,7 @@ fn AlarmNavButton(active_view: ActiveView) -> Element {
                 let alarms = store.get_active_alarms().await;
                 let unacked = alarms
                     .iter()
-                    .filter(|a| a.state == crate::store::alarm_store::AlarmState::Offnormal)
+                    .filter(|a| a.state == bms_store_storage::store::alarm_store::AlarmState::Offnormal)
                     .count() as u32;
                 alarm_count.set(unacked);
                 // Count failed notifications in last 24h
@@ -445,8 +445,8 @@ fn UserIndicator() -> Element {
                         onclick: move |_| {
                             dropdown_open.set(false);
                             state.audit(
-                                crate::store::audit_store::AuditEntryBuilder::new(
-                                    crate::store::audit_store::AuditAction::Logout, "session",
+                                bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                    bms_store_storage::store::audit_store::AuditAction::Logout, "session",
                                 ),
                             );
                             state.current_user.set(None);

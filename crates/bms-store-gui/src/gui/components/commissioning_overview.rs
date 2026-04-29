@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use crate::auth::Permission;
 use crate::gui::state::AppState;
-use crate::store::commissioning_store::{CommissionSummary, SessionStatus};
+use bms_store_storage::store::commissioning_store::{CommissionSummary, SessionStatus};
 
 #[component]
 pub fn CommissioningOverview() -> Element {
@@ -166,7 +166,7 @@ pub fn CommissioningOverview() -> Element {
 }
 
 async fn export_all_csv(
-    cs: &crate::store::commissioning_store::CommissioningStore,
+    cs: &bms_store_storage::store::commissioning_store::CommissioningStore,
     data: &[(CommissionSummary, String)],
 ) {
     let dialog = rfd::AsyncFileDialog::new()

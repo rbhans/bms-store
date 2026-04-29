@@ -3,8 +3,8 @@ use dioxus::prelude::*;
 use crate::config::profile::PointValue;
 use crate::gui::state::AppState;
 use crate::node::{Node, NodeCapabilities, NodeType, ProtocolBinding};
-use crate::store::node_store::NodeRecord;
-use crate::store::point_store::PointKey;
+use bms_store_storage::store::node_store::NodeRecord;
+use bms_store_storage::store::point_store::PointKey;
 
 // ----------------------------------------------------------------
 // VirtualPointsView — manage virtual/calculated points

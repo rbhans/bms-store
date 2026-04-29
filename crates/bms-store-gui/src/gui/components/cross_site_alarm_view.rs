@@ -16,7 +16,7 @@ use dioxus::prelude::*;
 use crate::gui::aggregation::alarm_aggregator::{
     AggregatedAlarmStore, SiteAlarmSource, SiteAlarmStore,
 };
-use crate::store::alarm_store::AlarmSeverity;
+use bms_store_storage::store::alarm_store::AlarmSeverity;
 
 use super::supervisor_gate::{LoadedSiteVariant, SupervisorHandle};
 

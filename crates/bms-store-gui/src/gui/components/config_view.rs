@@ -5,10 +5,10 @@ use dioxus::prelude::*;
 use crate::gui::state::AppState;
 use crate::haystack::prototypes::{EQUIP_PROTOTYPES, POINT_PROTOTYPES};
 use crate::haystack::tags::{self, TagKind};
-use crate::store::entity_store::Entity;
+use bms_store_storage::store::entity_store::Entity;
 
 use crate::auth::Permission;
-use crate::store::node_store::NodeRecord;
+use bms_store_storage::store::node_store::NodeRecord;
 
 use super::alarm_routing_view::AlarmRoutingView;
 use super::audit_log_view::AuditLogView;

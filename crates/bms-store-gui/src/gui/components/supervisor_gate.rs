@@ -16,9 +16,9 @@ use crate::gui::state::{CloseAction, RemoteSiteConfig};
 use crate::gui::supervisor_validation::{validate_supervisor_scenarios, SupervisorValidation};
 use crate::platform::{init_platform, BridgeStartReport, SharedPlatform};
 use crate::project::{load_project_meta, opencrate_home, ProjectMeta, ProjectPaths};
-use crate::store::audit_store::start_audit_store_with_path;
-use crate::store::supervisor_user_store::{SupervisorRole, SupervisorUser, SupervisorUserStore};
-use crate::store::user_store::{start_user_store_with_path, User, UserStore};
+use bms_store_storage::store::audit_store::start_audit_store_with_path;
+use bms_store_storage::store::supervisor_user_store::{SupervisorRole, SupervisorUser, SupervisorUserStore};
+use bms_store_storage::store::user_store::{start_user_store_with_path, User, UserStore};
 use crate::supervisor::health_loop::{spawn_health_loop, RemoteSiteStatus, TrackedSite};
 use crate::supervisor::remote::client::RemoteSiteClient;
 use crate::supervisor::remote::types::{RemoteCredentials, RemoteSiteError};
@@ -37,7 +37,7 @@ pub struct LoadedSite {
     pub platform: SharedPlatform,
     pub bridge_report: BridgeStartReport,
     pub user_store: UserStore,
-    pub audit_store: crate::store::audit_store::AuditStore,
+    pub audit_store: bms_store_storage::store::audit_store::AuditStore,
     pub weather_service: Arc<WeatherService>,
     /// Per-site shutdown — child of the supervisor token.
     pub shutdown: tokio_util::sync::CancellationToken,
@@ -133,7 +133,7 @@ pub struct SupervisorHandle {
     /// Per-site grants for the authenticated supervisor user. Empty vec means
     /// either the user is a SuperAdmin (implicit Admin on every site) or they
     /// have no explicit grants. Keyed by project UUID from `supervisor_site_grants`.
-    pub grants: Vec<crate::store::supervisor_user_store::SiteGrant>,
+    pub grants: Vec<bms_store_storage::store::supervisor_user_store::SiteGrant>,
 }
 
 impl PartialEq for SupervisorHandle {
@@ -160,10 +160,10 @@ impl PartialEq for SupervisorHandle {
 ///   but we degrade safely rather than panicking).
 pub fn synthesize_site_user(
     sup_user: &SupervisorUser,
-    grants: &[crate::store::supervisor_user_store::SiteGrant],
+    grants: &[bms_store_storage::store::supervisor_user_store::SiteGrant],
     site_id: &str,
-) -> crate::store::user_store::User {
-    use crate::store::user_store::{User, UserRole};
+) -> bms_store_storage::store::user_store::User {
+    use bms_store_storage::store::user_store::{User, UserRole};
     let role = match sup_user.role {
         SupervisorRole::SuperAdmin => UserRole::Admin,
         _ => grants
@@ -200,7 +200,7 @@ pub fn synthesize_site_user(
 /// via their wrapped types.
 #[derive(Clone)]
 pub struct ProjectAppOverrides {
-    pub audit_store: crate::store::audit_store::AuditStore,
+    pub audit_store: bms_store_storage::store::audit_store::AuditStore,
     pub weather_service: Arc<WeatherService>,
     pub shutdown: tokio_util::sync::CancellationToken,
 }
@@ -250,7 +250,7 @@ pub fn SupervisorGate(
     // Authentication phase state.
     let mut needs_setup = use_signal(|| Option::<bool>::None);
     let mut supervisor_user = use_signal(|| Option::<SupervisorUser>::None);
-    let mut grants = use_signal(Vec::<crate::store::supervisor_user_store::SiteGrant>::new);
+    let mut grants = use_signal(Vec::<bms_store_storage::store::supervisor_user_store::SiteGrant>::new);
     let mut auth_error = use_signal(|| Option::<String>::None);
     let mut setup_username = use_signal(String::new);
     let mut setup_display = use_signal(String::new);
@@ -831,8 +831,8 @@ fn describe_remote_err(e: &RemoteSiteError) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::supervisor_user_store::SiteGrant;
-    use crate::store::user_store::UserRole;
+    use bms_store_storage::store::supervisor_user_store::SiteGrant;
+    use bms_store_storage::store::user_store::UserRole;
 
     fn mk_sup_user(role: SupervisorRole) -> SupervisorUser {
         SupervisorUser {

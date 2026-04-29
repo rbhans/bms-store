@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use dioxus::prelude::*;
 
 use crate::gui::state::{ActiveView, AppState};
-use crate::store::node_store::NodeRecord;
+use bms_store_storage::store::node_store::NodeRecord;
 
 /// Spatial ref tag names shown as location hierarchy.
 const SPATIAL_REF_TAGS: &[&str] = &["siteRef", "buildingRef", "floorRef", "spaceRef"];

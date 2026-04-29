@@ -10,23 +10,23 @@ use crate::auth::{AllRolePermissions, Permission};
 use crate::config::loader::LoadedScenario;
 use crate::config::profile::PointValue;
 use crate::discovery::service::DiscoveryService;
-use crate::event::bus::EventBus;
+use bms_core::event::EventBus;
 use crate::logic::store::ProgramStore;
 use crate::plugin::{BridgeRegistry, ProtocolBridgeHandle};
 use crate::project::{ProjectMeta, ProjectPaths};
-use crate::store::alarm_store::AlarmStore;
-use crate::store::audit_store::{AuditEntryBuilder, AuditStore};
-use crate::store::commissioning_store::CommissioningStore;
-use crate::store::discovery_store::DiscoveryStore;
-use crate::store::entity_store::EntityStore;
-use crate::store::history_store::HistoryStore;
-use crate::store::mqtt_store::MqttStore;
-use crate::store::node_store::NodeStore;
-use crate::store::notification_store::NotificationStore;
-use crate::store::point_store::PointStore;
-use crate::store::schedule_store::ScheduleStore;
-use crate::store::user_store::{User, UserStore};
-use crate::store::webhook_store::WebhookStore;
+use bms_store_storage::store::alarm_store::AlarmStore;
+use bms_store_storage::store::audit_store::{AuditEntryBuilder, AuditStore};
+use bms_store_storage::store::commissioning_store::CommissioningStore;
+use bms_store_storage::store::discovery_store::DiscoveryStore;
+use bms_store_storage::store::entity_store::EntityStore;
+use bms_store_storage::store::history_store::HistoryStore;
+use bms_store_storage::store::mqtt_store::MqttStore;
+use bms_store_storage::store::node_store::NodeStore;
+use bms_store_storage::store::notification_store::NotificationStore;
+use bms_store_storage::store::point_store::PointStore;
+use bms_store_storage::store::schedule_store::ScheduleStore;
+use bms_store_storage::store::user_store::{User, UserStore};
+use bms_store_storage::store::webhook_store::WebhookStore;
 use crate::weather::model::WeatherData;
 use crate::weather::service::WeatherService;
 
@@ -728,18 +728,18 @@ pub struct AppState {
     /// Commissioning store for device verification checklists.
     pub commissioning_store: CommissioningStore,
     /// Report store for scheduled report definitions and executions.
-    pub report_store: crate::store::report_store::ReportStore,
+    pub report_store: bms_store_storage::store::report_store::ReportStore,
     /// Energy analytics store for meters, rates, baselines, and rollups.
-    pub energy_store: crate::store::energy_store::EnergyStore,
+    pub energy_store: bms_store_storage::store::energy_store::EnergyStore,
     /// Webhook subscription store for endpoint configs and delivery log.
     pub webhook_store: WebhookStore,
     /// FDD store for fault detection rules, bindings, and active faults.
-    pub fdd_store: crate::store::fdd_store::FddStore,
+    pub fdd_store: bms_store_storage::store::fdd_store::FddStore,
     /// Export store for database export connector configuration.
-    pub export_store: crate::store::export_store::ExportStore,
+    pub export_store: bms_store_storage::store::export_store::ExportStore,
     /// Cloud bridge store for cloud platform integration.
     #[cfg(feature = "cloud")]
-    pub cloud_store: crate::store::cloud_store::CloudStore,
+    pub cloud_store: bms_store_storage::store::cloud_store::CloudStore,
     /// Platform health registry — shared across all subsystems.
     pub health: crate::health::HealthRegistry,
     /// Live WASM plugin runtime — holds all loaded plugin instances.

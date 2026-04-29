@@ -14,7 +14,7 @@ use dioxus::prelude::*;
 use crate::auth::AllRolePermissions;
 use crate::gui::state::CloseAction;
 use crate::platform::SharedPlatform;
-use crate::store::supervisor_user_store::SiteGrant;
+use bms_store_storage::store::supervisor_user_store::SiteGrant;
 
 use super::cross_site_alarm_view::CrossSiteAlarmView;
 use super::cross_site_energy_view::CrossSiteEnergyView;
@@ -207,7 +207,7 @@ pub fn SupervisorApp(handle: SupervisorHandle, on_close: EventHandler<CloseActio
 #[component]
 fn SupervisorSiteShell(
     site: LoadedSite,
-    sup_user: Option<crate::store::supervisor_user_store::SupervisorUser>,
+    sup_user: Option<bms_store_storage::store::supervisor_user_store::SupervisorUser>,
     grants: Vec<SiteGrant>,
     on_close: EventHandler<CloseAction>,
 ) -> Element {

@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use crate::auth::Permission;
 use crate::gui::state::AppState;
-use crate::store::energy_store::{EnergyMeter, StoredRollup, UtilityRate};
+use bms_store_storage::store::energy_store::{EnergyMeter, StoredRollup, UtilityRate};
 
 // ----------------------------------------------------------------
 // Energy View — sub-tabbed: Dashboard | Meters | Rates | Baselines

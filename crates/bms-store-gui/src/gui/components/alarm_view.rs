@@ -6,12 +6,12 @@ use crate::auth::Permission;
 use crate::bridge::bacnet::BacnetNetworks;
 use crate::config::profile::PointKind;
 use crate::gui::state::AppState;
-use crate::store::alarm_store::{
+use bms_store_storage::store::alarm_store::{
     ActiveAlarm, AlarmConfig, AlarmEvent, AlarmHistoryQuery, AlarmParams, AlarmSeverity,
     AlarmState, AlarmType,
 };
-use crate::store::audit_store::{AuditAction, AuditEntryBuilder};
-use crate::store::notification_store::AlarmShelving;
+use bms_store_storage::store::audit_store::{AuditAction, AuditEntryBuilder};
+use bms_store_storage::store::notification_store::AlarmShelving;
 
 // ----------------------------------------------------------------
 // Tab state

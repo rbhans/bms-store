@@ -7,13 +7,13 @@ use tokio::sync::Mutex;
 use crate::config::profile::PointValue;
 
 use crate::auth::AllRolePermissions;
-use crate::event::bus::Event;
+use bms_core::event::Event;
 use crate::logic::engine::ExecutionEngine;
 use crate::platform::{init_platform, SharedPlatform};
 use crate::project::{load_project_meta, ProjectMeta, ProjectPaths};
-use crate::store::audit_store::start_audit_store_with_path;
-use crate::store::point_store::{PointKey, PointStatusFlags};
-use crate::store::user_store::{start_user_store_with_path, User, UserStore};
+use bms_store_storage::store::audit_store::start_audit_store_with_path;
+use bms_store_storage::store::point_store::{PointKey, PointStatusFlags};
+use bms_store_storage::store::user_store::{start_user_store_with_path, User, UserStore};
 
 use super::components::alarm_view::AlarmView;
 use super::components::building_tree::LocationBreadcrumb;
@@ -670,7 +670,7 @@ pub(crate) fn ProjectApp(
                 use crate::api::{self, ApiState};
                 use crate::backup::BackupScheduler;
                 use crate::gui::components::web_server_settings::load_web_server_config;
-                use crate::store::override_store::start_override_store_with_path;
+                use bms_store_storage::store::override_store::start_override_store_with_path;
 
                 let override_store =
                     start_override_store_with_path(&api_paths.db_path("overrides.db"));
@@ -888,7 +888,7 @@ pub(crate) fn ProjectApp(
 
                 // Audit log the write attempt
                 {
-                    use crate::store::audit_store::{AuditAction, AuditEntryBuilder};
+                    use bms_store_storage::store::audit_store::{AuditAction, AuditEntryBuilder};
                     let user = write_user.read();
                     let (uid, uname) = match user.as_ref() {
                         Some(u) => (u.id.as_str().to_string(), u.username.clone()),

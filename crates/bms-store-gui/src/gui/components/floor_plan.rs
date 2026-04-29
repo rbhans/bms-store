@@ -9,7 +9,7 @@ use crate::gui::state::{
     EquipLabelConfig, EquipSymbol, Equipment, LabelPlacement, NavNode, NavNodeKind, PageData,
     SetpointSource, Zone, ZoneLabelConfig,
 };
-use crate::store::point_store::PointKey;
+use bms_store_storage::store::point_store::PointKey;
 
 /// Default canvas coordinate space.
 const CANVAS_W: f64 = 1920.0;

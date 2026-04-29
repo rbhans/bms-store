@@ -7,7 +7,7 @@ use crate::bridge::bacnet::BacnetNetworks;
 use crate::config::profile::PointKind;
 use crate::config::profile::PointValue;
 use crate::gui::state::AppState;
-use crate::store::schedule_store::{
+use bms_store_storage::store::schedule_store::{
     compute_preview, empty_weekly, template_24_7, template_extended_hours, template_office_hours,
     template_retail, template_school, template_warehouse, uk_bank_holidays, us_federal_holidays,
     DateSpec, DaySlots, ExceptionGroup, Ordinal, Schedule, ScheduleAssignment, ScheduleConflict,
@@ -256,8 +256,8 @@ fn ScheduleBrowser(
                                             match ss.create_schedule(&name, "", vtype, dv, weekly).await {
                                                 Ok(id) => {
                                                     audit_state.audit(
-                                                        crate::store::audit_store::AuditEntryBuilder::new(
-                                                            crate::store::audit_store::AuditAction::CreateSchedule, "schedule",
+                                                        bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                                            bms_store_storage::store::audit_store::AuditAction::CreateSchedule, "schedule",
                                                         ).resource_id(&format!("{id}")).details(&name),
                                                     );
                                                     selected_schedule.set(Some(id));
@@ -1309,8 +1309,8 @@ fn SchedulePropertiesPanel(
                                         spawn(async move {
                                             let _ = ss.delete_schedule(sid).await;
                                             audit_state.audit(
-                                                crate::store::audit_store::AuditEntryBuilder::new(
-                                                    crate::store::audit_store::AuditAction::DeleteSchedule, "schedule",
+                                                bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                                    bms_store_storage::store::audit_store::AuditAction::DeleteSchedule, "schedule",
                                                 ).resource_id(&format!("{sid}")),
                                             );
                                             selected_schedule.set(None);

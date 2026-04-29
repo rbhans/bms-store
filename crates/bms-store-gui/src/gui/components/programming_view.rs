@@ -9,7 +9,7 @@ use crate::logic::compiler::compile_program;
 use crate::logic::model::*;
 use crate::logic::store::ExecutionLogEntry;
 use crate::logic::templates::{self, TemplateCategory};
-use crate::store::node_store::NodeRecord;
+use bms_store_storage::store::node_store::NodeRecord;
 
 // ----------------------------------------------------------------
 // Wire sheet constants
@@ -263,8 +263,8 @@ fn ProgramBrowser(
                                             match ps.create(prog).await {
                                                 Ok(()) => {
                                                     audit_state.audit(
-                                                        crate::store::audit_store::AuditEntryBuilder::new(
-                                                            crate::store::audit_store::AuditAction::CreateProgram, "program",
+                                                        bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                                            bms_store_storage::store::audit_store::AuditAction::CreateProgram, "program",
                                                         ).resource_id(&id).details(&name),
                                                     );
                                                     status.set(None);
@@ -354,8 +354,8 @@ fn ProgramBrowser(
                                                             match ps.create(prog).await {
                                                                 Ok(()) => {
                                                                     audit_state.audit(
-                                                                        crate::store::audit_store::AuditEntryBuilder::new(
-                                                                            crate::store::audit_store::AuditAction::CreateProgram, "program",
+                                                                        bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                                                            bms_store_storage::store::audit_store::AuditAction::CreateProgram, "program",
                                                                         ).resource_id(&unique_id).details(&format!("From template: {tname}")),
                                                                     );
                                                                     status.set(None);
@@ -2518,12 +2518,12 @@ fn ProgramPropertiesPanel(
                                 spawn(async move {
                                     let _ = ps.set_enabled(&pid, !enabled).await;
                                     let action = if !enabled {
-                                        crate::store::audit_store::AuditAction::EnableProgram
+                                        bms_store_storage::store::audit_store::AuditAction::EnableProgram
                                     } else {
-                                        crate::store::audit_store::AuditAction::DisableProgram
+                                        bms_store_storage::store::audit_store::AuditAction::DisableProgram
                                     };
                                     audit_state.audit(
-                                        crate::store::audit_store::AuditEntryBuilder::new(action, "program")
+                                        bms_store_storage::store::audit_store::AuditEntryBuilder::new(action, "program")
                                             .resource_id(&pid),
                                     );
                                     { let v = *refresh_counter.peek(); refresh_counter.set(v + 1); }
@@ -2549,8 +2549,8 @@ fn ProgramPropertiesPanel(
                                 spawn(async move {
                                     let _ = ps.delete(&pid).await;
                                     audit_state.audit(
-                                        crate::store::audit_store::AuditEntryBuilder::new(
-                                            crate::store::audit_store::AuditAction::DeleteProgram, "program",
+                                        bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                            bms_store_storage::store::audit_store::AuditAction::DeleteProgram, "program",
                                         ).resource_id(&pid),
                                     );
                                     selected_program.set(None);

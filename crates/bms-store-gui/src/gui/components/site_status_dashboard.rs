@@ -13,7 +13,7 @@ use dioxus::prelude::*;
 
 use crate::gui::aggregation::alarm_aggregator::SiteAlarmStore;
 use crate::gui::aggregation::types::SiteActiveAlarm;
-use crate::store::alarm_store::{ActiveAlarm, AlarmStore};
+use bms_store_storage::store::alarm_store::{ActiveAlarm, AlarmStore};
 use crate::supervisor::health_loop::RemoteSiteStatus;
 use crate::supervisor::remote::alarm_store::RemoteAlarmStore;
 
@@ -34,7 +34,7 @@ impl AlarmCounts {
     }
 
     fn from_local_alarms(alarms: &[ActiveAlarm]) -> Self {
-        use crate::store::alarm_store::AlarmSeverity;
+        use bms_store_storage::store::alarm_store::AlarmSeverity;
         let mut out = Self::default();
         for a in alarms {
             match a.severity {
@@ -48,7 +48,7 @@ impl AlarmCounts {
     }
 
     fn from_dto_alarms(alarms: &[SiteActiveAlarm]) -> Self {
-        use crate::store::alarm_store::AlarmSeverity;
+        use bms_store_storage::store::alarm_store::AlarmSeverity;
         let mut out = Self::default();
         for a in alarms {
             match a.severity {
@@ -80,7 +80,7 @@ async fn fetch_remote_counts(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::alarm_store::{ActiveAlarm, AlarmSeverity, AlarmState, AlarmType};
+    use bms_store_storage::store::alarm_store::{ActiveAlarm, AlarmSeverity, AlarmState, AlarmType};
 
     fn mk_alarm(sev: AlarmSeverity) -> ActiveAlarm {
         ActiveAlarm {

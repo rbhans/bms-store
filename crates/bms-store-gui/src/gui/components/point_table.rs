@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::profile::PointValue;
 use crate::gui::state::{AppState, EquipSymbol};
-use crate::store::point_store::PointStatusFlags;
+use bms_store_storage::store::point_store::PointStatusFlags;
 
 use super::floor_plan::equip_symbol_path;
 

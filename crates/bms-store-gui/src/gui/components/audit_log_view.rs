@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::gui::state::AppState;
-use crate::store::audit_store::{AuditAction, AuditEntry, AuditQuery};
+use bms_store_storage::store::audit_store::{AuditAction, AuditEntry, AuditQuery};
 
 #[component]
 pub fn AuditLogView() -> Element {
@@ -134,7 +134,7 @@ pub fn AuditLogView() -> Element {
                                 let username = entry.username.clone();
                                 let action_label = entry.action.label().to_string();
                                 let resource = entry.resource_id.clone().unwrap_or_default();
-                                let result_cls = if entry.result == crate::store::audit_store::AuditResult::Success {
+                                let result_cls = if entry.result == bms_store_storage::store::audit_store::AuditResult::Success {
                                     "audit-result success"
                                 } else {
                                     "audit-result failure"
@@ -208,7 +208,7 @@ pub fn AuditLogView() -> Element {
                                 div { class: "audit-detail-field",
                                     span { class: "audit-detail-label", "Result" }
                                     {
-                                        let rcls = if entry.result == crate::store::audit_store::AuditResult::Success {
+                                        let rcls = if entry.result == bms_store_storage::store::audit_store::AuditResult::Success {
                                             "audit-result success"
                                         } else {
                                             "audit-result failure"

@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::auth::{self, AllRolePermissions, Permission, RolePermissions};
-use crate::store::user_store::{User, UserRole, UserStore};
+use bms_store_storage::store::user_store::{User, UserRole, UserStore};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum UsersSubTab {
@@ -236,8 +236,8 @@ fn AddUserForm(
             match store.create_user(user).await {
                 Ok(_) => {
                     audit.audit(
-                        crate::store::audit_store::AuditEntryBuilder::new(
-                            crate::store::audit_store::AuditAction::CreateUser,
+                        bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                            bms_store_storage::store::audit_store::AuditAction::CreateUser,
                             "user",
                         )
                         .details(&format!("username={}", uname_audit)),
@@ -386,8 +386,8 @@ fn UserDetailForm(
                 match store.update_user(&uid, &dn, r, dis).await {
                     Ok(()) => {
                         audit.audit(
-                            crate::store::audit_store::AuditEntryBuilder::new(
-                                crate::store::audit_store::AuditAction::UpdateUser,
+                            bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                bms_store_storage::store::audit_store::AuditAction::UpdateUser,
                                 "user",
                             )
                             .resource_id(&uid)
@@ -448,8 +448,8 @@ fn UserDetailForm(
                 match store.update_password(&uid, &hash).await {
                     Ok(()) => {
                         audit.audit(
-                            crate::store::audit_store::AuditEntryBuilder::new(
-                                crate::store::audit_store::AuditAction::ChangePassword,
+                            bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                bms_store_storage::store::audit_store::AuditAction::ChangePassword,
                                 "user",
                             )
                             .resource_id(&uid),
@@ -481,8 +481,8 @@ fn UserDetailForm(
                 match store.delete_user(&uid).await {
                     Ok(()) => {
                         audit.audit(
-                            crate::store::audit_store::AuditEntryBuilder::new(
-                                crate::store::audit_store::AuditAction::DeleteUser,
+                            bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                bms_store_storage::store::audit_store::AuditAction::DeleteUser,
                                 "user",
                             )
                             .resource_id(&uid),
@@ -666,8 +666,8 @@ fn RolePermissionsView() -> Element {
                 rp.for_role_mut(&role).set(perm, new_val);
             }
             state2.audit(
-                crate::store::audit_store::AuditEntryBuilder::new(
-                    crate::store::audit_store::AuditAction::ChangeRolePermission,
+                bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                    bms_store_storage::store::audit_store::AuditAction::ChangeRolePermission,
                     "role_permission",
                 )
                 .details(&format!("{:?}.{} = {new_val}", role, perm.key())),

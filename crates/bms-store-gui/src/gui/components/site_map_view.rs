@@ -7,7 +7,7 @@ use crate::gui::state::{
     find_building_children, save_mapbox_config, ActiveView, AppState, MapMarker, MapViewConfig,
     MapboxConfig, MarkerIcon, SiteMapData, StatusBinding,
 };
-use crate::store::point_store::{PointKey, PointStatusFlags};
+use bms_store_storage::store::point_store::{PointKey, PointStatusFlags};
 
 /// Color presets for marker color picker.
 const COLOR_PRESETS: &[(&str, &str)] = &[

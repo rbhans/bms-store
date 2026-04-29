@@ -12,7 +12,7 @@ use dioxus::prelude::*;
 use crate::gui::aggregation::alarm_aggregator::SiteAlarmStore;
 use crate::gui::aggregation::energy_aggregator::SiteEnergyStore;
 use crate::gui::aggregation::types::{AggregatorError, SiteActiveAlarm};
-use crate::store::alarm_store::AlarmSeverity;
+use bms_store_storage::store::alarm_store::AlarmSeverity;
 use crate::supervisor::health_loop::RemoteSiteStatus;
 use crate::supervisor::remote::alarm_store::RemoteAlarmStore;
 use crate::supervisor::remote::energy_store::RemoteEnergyStore;

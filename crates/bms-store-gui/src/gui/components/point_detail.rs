@@ -31,7 +31,7 @@ pub fn PointDetail() -> Element {
         .find(|d| d.instance_id == device_id)
         .and_then(|d| d.profile.points.iter().find(|p| p.id == point_id));
 
-    let live_value = state.store.get(&crate::store::point_store::PointKey {
+    let live_value = state.store.get(&bms_store_storage::store::point_store::PointKey {
         device_instance_id: device_id.clone(),
         point_id: point_id.clone(),
     });

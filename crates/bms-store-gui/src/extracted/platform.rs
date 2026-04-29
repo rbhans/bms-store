@@ -10,8 +10,8 @@ use crate::bridge::traits::PointSource;
 use crate::config::loader::{resolve_scenario, LoadedScenario};
 use crate::config::template::auto_create_nodes;
 use crate::discovery::service::DiscoveryService;
-use crate::event::bus::EventBus;
-use crate::event::journal::EventJournal;
+use bms_core::event::EventBus;
+use bms_store_storage::event::journal::EventJournal;
 use crate::export::publisher::ExportPublisher;
 use crate::health::HealthRegistry;
 use crate::logic::store::{start_program_store_with_path, ProgramStore};
@@ -19,25 +19,25 @@ use crate::mqtt::publisher::MqttPublisher;
 use crate::notification::router::AlarmRouter;
 use crate::plugin::{BridgeRegistry, PluginRegistry};
 use crate::project::ProjectPaths;
-use crate::store::alarm_store::{start_alarm_engine_with_path, AlarmStore};
+use bms_store_storage::store::alarm_store::{start_alarm_engine_with_path, AlarmStore};
 #[cfg(feature = "cloud")]
-use crate::store::cloud_store::{start_cloud_store_with_path, CloudStore};
-use crate::store::commissioning_store::{start_commissioning_store_with_path, CommissioningStore};
-use crate::store::discovery_store::{
+use bms_store_storage::store::cloud_store::{start_cloud_store_with_path, CloudStore};
+use bms_store_storage::store::commissioning_store::{start_commissioning_store_with_path, CommissioningStore};
+use bms_store_storage::store::discovery_store::{
     start_conn_status_listener, start_discovery_store_with_path, DiscoveryStore,
 };
-use crate::store::energy_store::{start_energy_store_with_path, EnergyStore};
-use crate::store::entity_store::{start_entity_store_with_path, EntityStore};
-use crate::store::export_store::{start_export_store_with_path, ExportStore};
-use crate::store::fdd_store::{start_fdd_store_with_path, FddStore};
-use crate::store::history_store::{start_history_collector_with_path, HistoryStore};
-use crate::store::mqtt_store::{start_mqtt_store_with_path, MqttStore};
-use crate::store::node_store::{start_node_store_with_path, NodeStore};
-use crate::store::notification_store::{start_notification_store_with_path, NotificationStore};
-use crate::store::point_store::{PointStore, PointStoreProfileExt};
-use crate::store::report_store::start_report_store_with_path;
-use crate::store::schedule_store::{start_schedule_engine_with_path, ScheduleStore};
-use crate::store::webhook_store::{start_webhook_store_with_path, WebhookStore};
+use bms_store_storage::store::energy_store::{start_energy_store_with_path, EnergyStore};
+use bms_store_storage::store::entity_store::{start_entity_store_with_path, EntityStore};
+use bms_store_storage::store::export_store::{start_export_store_with_path, ExportStore};
+use bms_store_storage::store::fdd_store::{start_fdd_store_with_path, FddStore};
+use bms_store_storage::store::history_store::{start_history_collector_with_path, HistoryStore};
+use bms_store_storage::store::mqtt_store::{start_mqtt_store_with_path, MqttStore};
+use bms_store_storage::store::node_store::{start_node_store_with_path, NodeStore};
+use bms_store_storage::store::notification_store::{start_notification_store_with_path, NotificationStore};
+use bms_store_storage::store::point_store::{PointStore, PointStoreProfileExt};
+use bms_store_storage::store::report_store::start_report_store_with_path;
+use bms_store_storage::store::schedule_store::{start_schedule_engine_with_path, ScheduleStore};
+use bms_store_storage::store::webhook_store::{start_webhook_store_with_path, WebhookStore};
 use crate::webhook::dispatcher::WebhookDispatcher;
 
 /// Core model state — the platform data layer.
@@ -66,7 +66,7 @@ pub struct AutomationState {
     pub notification_store: NotificationStore,
     pub mqtt_store: MqttStore,
     pub commissioning_store: CommissioningStore,
-    pub report_store: crate::store::report_store::ReportStore,
+    pub report_store: bms_store_storage::store::report_store::ReportStore,
     pub energy_store: EnergyStore,
     pub webhook_store: WebhookStore,
     pub fdd_store: FddStore,
@@ -185,7 +185,7 @@ pub struct SharedPlatform {
     pub notification_store: NotificationStore,
     pub mqtt_store: MqttStore,
     pub commissioning_store: CommissioningStore,
-    pub report_store: crate::store::report_store::ReportStore,
+    pub report_store: bms_store_storage::store::report_store::ReportStore,
     pub energy_store: EnergyStore,
     pub webhook_store: WebhookStore,
     pub fdd_store: FddStore,
@@ -282,9 +282,9 @@ pub async fn init_platform(
         .and_then(|s| s.event_journal.as_ref())
         .filter(|jcfg| jcfg.enabled)
         .map(|jcfg| {
-            let j = crate::event::journal::start_event_journal(&paths.db_path("event_journal.db"));
+            let j = bms_store_storage::event::journal::start_event_journal(&paths.db_path("event_journal.db"));
             let j = j.with_site_id(site_id.clone());
-            crate::event::journal::start_pruning_task(
+            bms_store_storage::event::journal::start_pruning_task(
                 j.clone(),
                 jcfg.max_age_secs,
                 jcfg.max_events,

@@ -196,14 +196,14 @@ pub(crate) fn render_device_detail(
                                             if let Err(e) = svc.accept_device(&id).await {
                                                 eprintln!("Accept failed: {e}");
                                                 audit_state.audit(
-                                                    crate::store::audit_store::AuditEntryBuilder::new(
-                                                        crate::store::audit_store::AuditAction::AcceptDevice, "device",
+                                                    bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                                        bms_store_storage::store::audit_store::AuditAction::AcceptDevice, "device",
                                                     ).resource_id(&id).failure(&format!("{e}")),
                                                 );
                                             } else {
                                                 audit_state.audit(
-                                                    crate::store::audit_store::AuditEntryBuilder::new(
-                                                        crate::store::audit_store::AuditAction::AcceptDevice, "device",
+                                                    bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                                        bms_store_storage::store::audit_store::AuditAction::AcceptDevice, "device",
                                                     ).resource_id(&id),
                                                 );
                                             }

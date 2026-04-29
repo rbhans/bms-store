@@ -8,8 +8,8 @@ use crate::project::{
     create_project, delete_project, export_project, import_project, load_registry,
     migrate_legacy_if_needed, opencrate_home, validate_project_path, ProjectPaths,
 };
-use crate::store::supervisor_user_store::{RemoteSiteRow, SupervisorUserStore};
-use crate::store::user_store::start_user_store_with_path;
+use bms_store_storage::store::supervisor_user_store::{RemoteSiteRow, SupervisorUserStore};
+use bms_store_storage::store::user_store::start_user_store_with_path;
 use crate::supervisor::crypto::{
     decrypt_string, default_machine_key_path, encrypt_string, load_or_create_machine_key,
 };

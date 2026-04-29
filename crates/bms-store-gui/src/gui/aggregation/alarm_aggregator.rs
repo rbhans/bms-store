@@ -16,7 +16,7 @@ use futures::future::join_all;
 
 pub use crate::aggregation::alarm::SiteAlarmStore;
 pub use crate::aggregation::types::{AggregatorError, SiteActiveAlarm, SiteAlarmEvent};
-use crate::store::alarm_store::AlarmHistoryQuery;
+use bms_store_storage::store::alarm_store::AlarmHistoryQuery;
 
 // ----------------------------------------------------------------
 // Aggregator
@@ -165,7 +165,7 @@ impl AggregatedAlarmStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::alarm_store::{AlarmSeverity, AlarmStore};
+    use bms_store_storage::store::alarm_store::{AlarmSeverity, AlarmStore};
     use async_trait::async_trait;
 
     /// Stub `SiteAlarmStore` that returns canned data so we can exercise the

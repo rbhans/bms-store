@@ -140,7 +140,7 @@ async fn compute_site_kpis(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::energy_store::EnergyStore;
+    use bms_store_storage::store::energy_store::EnergyStore;
     use async_trait::async_trait;
 
     struct StubEnergyStore {

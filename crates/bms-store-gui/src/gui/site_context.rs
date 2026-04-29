@@ -12,8 +12,8 @@ use tokio_util::sync::CancellationToken;
 use crate::auth::AllRolePermissions;
 use crate::platform::{BridgeStartReport, SharedPlatform};
 use crate::project::{ProjectMeta, ProjectPaths};
-use crate::store::audit_store::AuditStore;
-use crate::store::user_store::{User, UserStore};
+use bms_store_storage::store::audit_store::AuditStore;
+use bms_store_storage::store::user_store::{User, UserStore};
 use crate::weather::model::WeatherData;
 use crate::weather::service::WeatherService;
 

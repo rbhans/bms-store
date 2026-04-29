@@ -3,11 +3,11 @@ use dioxus::prelude::*;
 use crate::auth::Permission;
 use crate::config::profile::PointValue;
 use crate::gui::state::AppState;
-use crate::store::audit_store::{AuditAction, AuditEntryBuilder};
-use crate::store::commissioning_store::{
+use bms_store_storage::store::audit_store::{AuditAction, AuditEntryBuilder};
+use bms_store_storage::store::commissioning_store::{
     CommissionItem, CommissionItemSeed, CommissionSession, ItemStatus, ItemType, SessionStatus,
 };
-use crate::store::point_store::PointKey;
+use bms_store_storage::store::point_store::PointKey;
 
 // ----------------------------------------------------------------
 // CommissioningTab — per-device commissioning checklist

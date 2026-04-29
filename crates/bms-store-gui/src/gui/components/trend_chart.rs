@@ -4,7 +4,7 @@ use crate::gui::state::{
     snap, ActiveView, AppState, DashboardTool, DashboardWidget, DragOp, TrendRange, WidgetKind,
     WidgetSource, GRID_SNAP,
 };
-use crate::store::history_store::{HistoryQuery, HistoryResult};
+use bms_store_storage::store::history_store::{HistoryQuery, HistoryResult};
 
 use crate::config::loader::LoadedDevice;
 
@@ -971,7 +971,7 @@ fn GaugeWidget(widget: DashboardWidget) -> Element {
         return rsx! { div { class: "widget-empty", span { class: "widget-kind-label", "Gauge" } p { "Add a point." } } };
     }
     let src = &widget.sources[0];
-    let key = crate::store::point_store::PointKey {
+    let key = bms_store_storage::store::point_store::PointKey {
         device_instance_id: src.device_id.clone(),
         point_id: src.point_id.clone(),
     };
@@ -1010,7 +1010,7 @@ fn TableWidget(widget: DashboardWidget) -> Element {
         .sources
         .iter()
         .map(|src| {
-            let key = crate::store::point_store::PointKey {
+            let key = bms_store_storage::store::point_store::PointKey {
                 device_instance_id: src.device_id.clone(),
                 point_id: src.point_id.clone(),
             };
@@ -1052,7 +1052,7 @@ fn ValueWidget(widget: DashboardWidget) -> Element {
         .sources
         .iter()
         .map(|src| {
-            let key = crate::store::point_store::PointKey {
+            let key = bms_store_storage::store::point_store::PointKey {
                 device_instance_id: src.device_id.clone(),
                 point_id: src.point_id.clone(),
             };

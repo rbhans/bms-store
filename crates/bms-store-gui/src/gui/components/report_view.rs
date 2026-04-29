@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::auth::Permission;
 use crate::gui::state::AppState;
 use crate::reporting::templates::template_for_type;
-use crate::store::report_store::{
+use bms_store_storage::store::report_store::{
     ExecutionStatus, ReportConfig, ReportDefinition, ReportExecution, ReportFrequency,
     ReportRecipient, ReportSchedule, ReportType, TimeRangeKind,
 };
@@ -175,16 +175,16 @@ fn TemplatesTab(can_manage: bool) -> Element {
 
                                         let (result, action) = if let Some(id) = edit_id {
                                             (rs.update_definition(id, &name, report_type, &config).await.map(|_| id),
-                                             crate::store::audit_store::AuditAction::UpdateReport)
+                                             bms_store_storage::store::audit_store::AuditAction::UpdateReport)
                                         } else {
                                             (rs.create_definition(&name, report_type, &config).await,
-                                             crate::store::audit_store::AuditAction::CreateReport)
+                                             bms_store_storage::store::audit_store::AuditAction::CreateReport)
                                         };
 
                                         match result {
                                             Ok(id) => {
                                                 if let Some(ref user) = *current_user.read() {
-                                                    let builder = crate::store::audit_store::AuditEntryBuilder::new(action, "report")
+                                                    let builder = bms_store_storage::store::audit_store::AuditEntryBuilder::new(action, "report")
                                                         .resource_id(&id.to_string());
                                                     let _ = audit.log_action(&user.id, &user.username, builder).await;
                                                 }
@@ -276,8 +276,8 @@ fn TemplatesTab(can_manage: bool) -> Element {
                                                         spawn(async move {
                                                             let _ = rs.delete_definition(def_id).await;
                                                             if let Some(ref user) = *current_user.read() {
-                                                                let builder = crate::store::audit_store::AuditEntryBuilder::new(
-                                                                    crate::store::audit_store::AuditAction::DeleteReport, "report",
+                                                                let builder = bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                                                    bms_store_storage::store::audit_store::AuditAction::DeleteReport, "report",
                                                                 ).resource_id(&def_id.to_string());
                                                                 let _ = audit.log_action(&user.id, &user.username, builder).await;
                                                             }
@@ -650,8 +650,8 @@ fn HistoryTab(can_manage: bool) -> Element {
                                                 }
                                                 // Audit log
                                                 if let Some(ref user) = *current_user.read() {
-                                                    let builder = crate::store::audit_store::AuditEntryBuilder::new(
-                                                        crate::store::audit_store::AuditAction::RunReport,
+                                                    let builder = bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                                        bms_store_storage::store::audit_store::AuditAction::RunReport,
                                                         "report",
                                                     ).resource_id(&def_id.to_string());
                                                     let _ = audit.log_action(&user.id, &user.username, builder).await;

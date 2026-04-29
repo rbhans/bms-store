@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::auth::Permission;
 use crate::export::{ConnectorType, ExportConnectorConfig, ExportStatus};
 use crate::gui::state::AppState;
-use crate::store::audit_store::{AuditAction, AuditEntryBuilder};
+use bms_store_storage::store::audit_store::{AuditAction, AuditEntryBuilder};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum ExportTab {

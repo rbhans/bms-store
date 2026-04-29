@@ -8,7 +8,7 @@ use crate::cloud::{CloudBridgeConfig, CloudBridgeStatus, CloudProvider};
 #[cfg(feature = "cloud")]
 use crate::gui::state::AppState;
 #[cfg(feature = "cloud")]
-use crate::store::audit_store::{AuditAction, AuditEntryBuilder};
+use bms_store_storage::store::audit_store::{AuditAction, AuditEntryBuilder};
 
 /// Fields that contain secrets — redacted in the GUI edit form.
 #[cfg(feature = "cloud")]

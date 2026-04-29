@@ -8,8 +8,8 @@ use crate::notification::channel::{
 use crate::notification::email::EmailChannel;
 use crate::notification::sms::SmsChannel;
 use crate::notification::webhook::WebhookChannel;
-use crate::store::audit_store::{AuditAction, AuditEntryBuilder};
-use crate::store::notification_store::{
+use bms_store_storage::store::audit_store::{AuditAction, AuditEntryBuilder};
+use bms_store_storage::store::notification_store::{
     AlarmRecipient, ChannelType, DeliveryStatus, NotificationRecord, RoutingRule,
 };
 

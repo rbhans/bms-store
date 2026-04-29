@@ -523,8 +523,8 @@ pub(crate) fn render_group_editor(
                                         } else {
                                             ok += 1;
                                             audit.audit(
-                                                crate::store::audit_store::AuditEntryBuilder::new(
-                                                    crate::store::audit_store::AuditAction::AcceptDevice, "device",
+                                                bms_store_storage::store::audit_store::AuditEntryBuilder::new(
+                                                    bms_store_storage::store::audit_store::AuditAction::AcceptDevice, "device",
                                                 ).resource_id(id),
                                             );
                                         }
