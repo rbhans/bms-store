@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::auth;
+use bms_store_storage::auth;
 use bms_store_storage::store::user_store::{User, UserRole, UserStore};
 
 /// Login screen shown when users exist but nobody is logged in.
