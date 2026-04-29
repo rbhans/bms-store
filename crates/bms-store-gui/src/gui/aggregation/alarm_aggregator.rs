@@ -12,11 +12,26 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use futures::future::join_all;
 
-pub use crate::gui::aggregation::alarm::SiteAlarmStore;
 pub use crate::gui::aggregation::types::{AggregatorError, SiteActiveAlarm, SiteAlarmEvent};
 use bms_store_storage::store::alarm_store::AlarmHistoryQuery;
+
+// ----------------------------------------------------------------
+// Trait
+// ----------------------------------------------------------------
+
+/// A per-site alarm data source — implemented by the local `AlarmStore` and
+/// by HTTP-backed remote stores for the supervisor / multi-site dashboards.
+#[async_trait]
+pub trait SiteAlarmStore: Send + Sync + 'static {
+    async fn get_active_alarms(&self) -> Result<Vec<SiteActiveAlarm>, AggregatorError>;
+    async fn query_history(
+        &self,
+        query: AlarmHistoryQuery,
+    ) -> Result<Vec<SiteAlarmEvent>, AggregatorError>;
+}
 
 // ----------------------------------------------------------------
 // Aggregator
@@ -159,6 +174,56 @@ impl AggregatedAlarmStore {
             }
         }
         out
+    }
+}
+
+// ----------------------------------------------------------------
+// Blanket impl for the local AlarmStore
+// ----------------------------------------------------------------
+
+/// Blanket impl so the local per-site `AlarmStore` satisfies `SiteAlarmStore`.
+/// Converts storage-layer `ActiveAlarm` / `AlarmEvent` into the simpler
+/// cross-site DTOs.
+#[async_trait]
+impl SiteAlarmStore for bms_store_storage::store::alarm_store::AlarmStore {
+    async fn get_active_alarms(&self) -> Result<Vec<SiteActiveAlarm>, AggregatorError> {
+        let alarms = bms_store_storage::store::alarm_store::AlarmStore::get_active_alarms(self).await;
+        Ok(alarms
+            .into_iter()
+            .map(|a| SiteActiveAlarm {
+                config_id: a.config_id,
+                device_id: a.device_id,
+                point_id: a.point_id,
+                severity: a.severity,
+                trigger_value: a.trigger_value,
+                trigger_time_ms: a.trigger_time_ms,
+                ack_time_ms: a.ack_time_ms,
+            })
+            .collect())
+    }
+
+    async fn query_history(
+        &self,
+        query: AlarmHistoryQuery,
+    ) -> Result<Vec<SiteAlarmEvent>, AggregatorError> {
+        bms_store_storage::store::alarm_store::AlarmStore::query_history(self, query)
+            .await
+            .map_err(|e| AggregatorError::Query(e.to_string()))
+            .map(|events| {
+                events
+                    .into_iter()
+                    .map(|e| SiteAlarmEvent {
+                        config_id: e.config_id,
+                        device_id: e.device_id,
+                        point_id: e.point_id,
+                        severity: e.severity,
+                        timestamp_ms: e.timestamp_ms,
+                        from_state: e.from_state,
+                        to_state: e.to_state,
+                        value: e.value,
+                    })
+                    .collect()
+            })
     }
 }
 

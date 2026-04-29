@@ -12,10 +12,27 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use futures::future::join_all;
 
-pub use crate::gui::aggregation::energy::SiteEnergyStore;
 pub use crate::gui::aggregation::types::{AggregatorError, SiteDailyRollup, SiteMeter};
+
+// ----------------------------------------------------------------
+// Trait
+// ----------------------------------------------------------------
+
+/// A per-site energy data source — implemented by the local `EnergyStore` and
+/// by HTTP-backed remote stores for the supervisor / multi-site dashboards.
+#[async_trait]
+pub trait SiteEnergyStore: Send + Sync + 'static {
+    async fn list_meters(&self) -> Result<Vec<SiteMeter>, AggregatorError>;
+    async fn query_daily_rollups(
+        &self,
+        meter_id: i64,
+        start_ms: i64,
+        end_ms: i64,
+    ) -> Result<Vec<SiteDailyRollup>, AggregatorError>;
+}
 
 // ----------------------------------------------------------------
 // Aggregator
@@ -135,6 +152,46 @@ async fn compute_site_kpis(
         meter_count,
         load_factor,
     })
+}
+
+// ----------------------------------------------------------------
+// Blanket impl for the local EnergyStore
+// ----------------------------------------------------------------
+
+/// Blanket impl so the local per-site `EnergyStore` satisfies `SiteEnergyStore`.
+/// Converts storage-layer `EnergyMeter` / `StoredRollup` into the simpler
+/// cross-site DTOs.
+#[async_trait]
+impl SiteEnergyStore for bms_store_storage::store::energy_store::EnergyStore {
+    async fn list_meters(&self) -> Result<Vec<SiteMeter>, AggregatorError> {
+        let meters = bms_store_storage::store::energy_store::EnergyStore::list_meters(self).await;
+        Ok(meters
+            .into_iter()
+            .map(|m| SiteMeter { id: m.id, name: m.name })
+            .collect())
+    }
+
+    async fn query_daily_rollups(
+        &self,
+        meter_id: i64,
+        start_ms: i64,
+        end_ms: i64,
+    ) -> Result<Vec<SiteDailyRollup>, AggregatorError> {
+        let rollups = bms_store_storage::store::energy_store::EnergyStore::query_rollups(
+            self, meter_id, "daily", start_ms, end_ms,
+        )
+        .await;
+        Ok(rollups
+            .into_iter()
+            .map(|r| SiteDailyRollup {
+                period_start_ms: r.period_start_ms,
+                consumption_kwh: r.consumption_kwh,
+                peak_demand_kw: r.peak_demand_kw,
+                avg_kw: r.avg_kw,
+                cost: r.cost,
+            })
+            .collect())
+    }
 }
 
 #[cfg(test)]
