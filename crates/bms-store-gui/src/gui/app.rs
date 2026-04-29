@@ -25,31 +25,23 @@ use super::components::project_launcher::ProjectLauncher;
 use super::components::relationships_section::RelationshipsSection;
 use super::components::schedule_view::ScheduleView;
 use super::components::sidebar::Sidebar;
-use super::components::supervisor_gate::SupervisorGate;
 use super::components::toolbar::Toolbar;
 use super::components::trend_chart::TrendView;
 use super::components::weather_view::WeatherView;
 use super::state::{
     ActiveView, AppState, CloseAction, DashboardTool,
-    LaunchSelection, RemoteSiteConfig, SidebarTab, WriteCommand,
+    LaunchSelection, SidebarTab, WriteCommand,
 };
 use super::theme::{apply_theme_css, load_theme_config, save_theme_config};
 use bms_store_storage::weather::config::WeatherConfig;
 use bms_store_storage::weather::service::WeatherService;
 
-/// Top-level app phase — launcher, single-project, or multi-site supervisor.
+/// Top-level app phase. Currently single-project only; the enum shape is
+/// kept so a future Multi-site variant can be added without re-architecting.
 #[derive(Clone)]
 enum AppPhase {
-    /// Show the project launcher.
     Launcher,
-    /// One project selected — legacy single-site flow.
     Single(ProjectPaths),
-    /// Multiple projects selected — supervisor flow. May be a mix of local
-    /// project paths and remote-site connection profiles.
-    Supervisor {
-        local_sites: Vec<ProjectPaths>,
-        remote_sites: Vec<RemoteSiteConfig>,
-    },
 }
 
 #[component]
@@ -79,40 +71,11 @@ pub fn App() -> Element {
                     },
                 }
             },
-            AppPhase::Supervisor { local_sites, remote_sites } => {
-                let key_str = {
-                    let local_part = local_sites
-                        .iter()
-                        .map(|p| p.root.display().to_string())
-                        .collect::<Vec<_>>()
-                        .join("|");
-                    let remote_part = remote_sites
-                        .iter()
-                        .map(|r| r.config_id.clone())
-                        .collect::<Vec<_>>()
-                        .join("|");
-                    format!("{local_part}::{remote_part}")
-                };
-                rsx! {
-                    SupervisorGate {
-                        key: "{key_str}",
-                        local_sites: local_sites.clone(),
-                        remote_sites: remote_sites.clone(),
-                        on_close: move |action: CloseAction| {
-                            initial_tab.set(Some(action));
-                            phase.set(AppPhase::Launcher);
-                        },
-                    }
-                }
-            }
             AppPhase::Launcher => rsx! {
                 ProjectLauncher {
                     on_open: move |selection: LaunchSelection| {
                         match selection {
                             LaunchSelection::Single(paths) => phase.set(AppPhase::Single(paths)),
-                            LaunchSelection::Supervisor { local_sites, remote_sites } => {
-                                phase.set(AppPhase::Supervisor { local_sites, remote_sites })
-                            }
                         }
                     },
                     initial_action: *initial_tab.read(),
@@ -253,12 +216,6 @@ pub(crate) fn ProjectApp(
     current_user: Signal<Option<User>>,
     role_permissions: Signal<AllRolePermissions>,
     platform_data: Signal<Option<SharedPlatform>>,
-    /// Optional bundle of pre-built per-site handles (used by SupervisorApp
-    /// to avoid double-starting SQLite threads for the same audit/weather DB
-    /// and to tie each site's shutdown to the supervisor-wide token).
-    /// When `None` (single-site ProjectGate flow), these are built fresh.
-    #[props(default)]
-    supervisor_overrides: Option<crate::gui::components::supervisor_gate::ProjectAppOverrides>,
 ) -> Element {
     let project_paths = use_hook(|| paths.clone());
     let project_meta = use_hook(|| {
@@ -296,32 +253,13 @@ pub(crate) fn ProjectApp(
     let export_store = plat.export_store.clone();
 
     // Per-site shutdown token — lifecycle matches the *site*, not this component.
-    //
-    // In supervisor mode this is the supervisor-owned per-site child token. In
-    // single-site mode we own it ourselves. Tasks bound to this token are things
-    // that should live as long as the site is loaded (bridges, logic engine,
-    // alarm status sync) — **not** things tied to a view mount. See
-    // `view_shutdown` below for view-local tasks.
-    //
-    // Crucially, `use_drop` below cancels this token **only** in single-site
-    // mode. In supervisor mode the supervisor owns the token and is the only
-    // thing allowed to cancel it; otherwise switching views (Dashboard → Alarms
-    // → Site) would re-mount this component and the old unmount would kill the
-    // live site's bridges.
-    let shutdown_token = use_hook(|| {
-        supervisor_overrides
-            .as_ref()
-            .map(|o| o.shutdown.clone())
-            .unwrap_or_else(tokio_util::sync::CancellationToken::new)
-    });
+    // Tasks bound to this token are things that should live as long as the site
+    // is loaded (bridges, logic engine, alarm status sync).
+    // See `view_shutdown` below for view-local tasks.
+    let shutdown_token = use_hook(tokio_util::sync::CancellationToken::new);
 
     // View-local shutdown token — a fresh token per ProjectApp mount.
-    // Cancelled on unmount, drives tasks that are view-lifetime: store version
-    // watchers, anything that reads view-scoped Signals. This token is owned
-    // by this component instance and is safe to cancel on drop regardless of
-    // supervisor vs single-site mode.
     let view_shutdown = use_hook(tokio_util::sync::CancellationToken::new);
-    let is_supervisor_mode = supervisor_overrides.is_some();
 
     // Write channel — GUI-specific (logic engine + write dialog)
     let (write_tx, write_rx) = use_hook(|| {
@@ -400,20 +338,10 @@ pub(crate) fn ProjectApp(
     let quick_trend_point = use_signal(|| Option::<String>::None);
     let quick_trend_range = use_signal(|| crate::gui::state::TrendRange::Hour1);
 
-    let audit_store = use_hook(|| {
-        supervisor_overrides
-            .as_ref()
-            .map(|o| o.audit_store.clone())
-            .unwrap_or_else(|| start_audit_store_with_path(&project_paths.db_path("audit.db")))
-    });
+    let audit_store = use_hook(|| start_audit_store_with_path(&project_paths.db_path("audit.db")));
 
     let weather_config = use_hook(|| WeatherConfig::load(&project_paths.data_dir));
-    let weather_service = use_hook(|| {
-        supervisor_overrides
-            .as_ref()
-            .map(|o| o.weather_service.clone())
-            .unwrap_or_else(|| Arc::new(WeatherService::new(weather_config)))
-    });
+    let weather_service = use_hook(|| Arc::new(WeatherService::new(weather_config)));
     let weather_data = use_signal(|| Option::<bms_store_storage::weather::model::WeatherData>::None);
     let theme_config = use_signal(|| load_theme_config(&project_paths));
     let pending_config_section = use_signal(|| Option::<String>::None);
@@ -441,17 +369,12 @@ pub(crate) fn ProjectApp(
         });
     }
 
-    // Build a SiteContext + 1-site SupervisorState that the new state types can
-    // observe. The legacy field facade below is still populated from `plat`
-    // clones so existing view code (~30 files) keeps working unchanged.
+    // Build a SiteContext bundling all per-site handles.
     let site_ctx = use_hook(|| crate::gui::site_context::SiteContext {
         site_id: project_meta.id.clone(),
         project_meta: project_meta.clone(),
         project_paths: project_paths.clone(),
         platform: plat.clone(),
-        // ProjectGate's init_platform call already logs failures via tracing.
-        // Step 2 will thread the real report through here for the multi-site
-        // SupervisorGate / Site Status Dashboard.
         bridge_report: crate::platform::BridgeStartReport::default(),
         audit_store: audit_store.clone(),
         user_store: user_store.clone(),
@@ -464,19 +387,9 @@ pub(crate) fn ProjectApp(
         node_version,
         shutdown: shutdown_token.clone(),
     });
-    let supervisor_state = use_hook(|| {
-        crate::gui::supervisor_state::SupervisorState::single_site(
-            site_ctx.clone(),
-            active_view,
-            sidebar_tab,
-            shutdown_token.clone(),
-        )
-    });
-    use_context_provider(|| supervisor_state.clone());
 
     let app_state = use_hook(|| AppState {
         site: site_ctx.clone(),
-        supervisor: supervisor_state.clone(),
         store: store.clone(),
         node_store: node_store.clone(),
         event_bus: event_bus.clone(),
@@ -551,23 +464,14 @@ pub(crate) fn ProjectApp(
         });
     }
 
-    // Cancel *view-local* tasks on unmount (store version watchers, anything
-    // tied to view Signals). In single-site mode also cancel the per-site
-    // shutdown token — that's the legacy behavior, and in single-site mode the
-    // component only unmounts when the whole project is being torn down.
-    //
-    // In supervisor mode we MUST NOT cancel the per-site token here: the
-    // component remounts on every view switch (Dashboard/Alarms/Energy → Site)
-    // and cancelling it would kill the still-active site's bridges, logic
-    // engine, alarm sync, etc. The supervisor owns the per-site token and
-    // only cancels it when actually closing the site.
+    // Cancel view-local tasks on unmount (store version watchers, anything
+    // tied to view Signals). Also cancel the per-site shutdown token since
+    // the component only unmounts when the project is being torn down.
     let drop_view_token = view_shutdown.clone();
     let drop_site_token = shutdown_token.clone();
     use_drop(move || {
         drop_view_token.cancel();
-        if !is_supervisor_mode {
-            drop_site_token.cancel();
-        }
+        drop_site_token.cancel();
     });
 
     // Clear pending (un-acted-on) discovered devices from previous session
@@ -586,8 +490,7 @@ pub(crate) fn ProjectApp(
         });
     }
 
-    // Store version watchers for Dioxus reactivity — tied to the view scope
-    // so they're dropped cleanly on remount (e.g. supervisor view switch).
+    // Store version watchers for Dioxus reactivity — tied to the view scope.
     {
         let watcher_store = store.clone();
         let watcher_shutdown1 = view_shutdown.clone();
@@ -625,11 +528,7 @@ pub(crate) fn ProjectApp(
     //
     // In single-site mode this hook registers a task that waits on our own
     // freshly-created token — cancelled by `use_drop` above when the whole
-    // project tears down. In supervisor mode the supervisor owns the stop
-    // lifecycle directly (it calls `registry.stop_all()` when closing a site)
-    // and we must NOT register this hook, because ProjectApp remounts on
-    // every view switch and each remount would pile up another waiter.
-    if !is_supervisor_mode {
+    {
         let registry = bridge_registry.clone();
         let bridge_shutdown = shutdown_token.clone();
         use_hook(move || {
@@ -741,10 +640,8 @@ pub(crate) fn ProjectApp(
         });
     }
 
-    // Status sync — EventBus-driven alarm flag projection + periodic stale
-    // check. Lifetime is the view (restarts on remount) rather than the site,
-    // so we don't stack up N overlapping status-sync tasks in supervisor mode
-    // when the user flips between Dashboard / Alarms / Site.
+    // Status sync — EventBus-driven alarm flag projection + periodic stale check.
+    // Lifetime is the view scope (restarts on remount).
     let sync_store = store.clone();
     let sync_alarm = alarm_store.clone();
     let sync_bus = event_bus.clone();

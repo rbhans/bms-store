@@ -42,8 +42,6 @@ pub enum ConfigSection {
     Energy,
     Fdd,
     DataExport,
-    #[cfg(feature = "cloud")]
-    Cloud,
     #[cfg(feature = "atlas")]
     Atlas,
 }
@@ -65,8 +63,6 @@ impl ConfigSection {
             Self::Energy => "Energy",
             Self::Fdd => "FDD",
             Self::DataExport => "Data Export",
-            #[cfg(feature = "cloud")]
-            Self::Cloud => "Cloud",
             Self::WebServer => "Web Server",
             Self::Users => "Users",
             Self::AuditLog => "Audit Log",
@@ -87,7 +83,6 @@ impl ConfigSection {
         can_manage_energy: bool,
         can_manage_fdd: bool,
         can_manage_export: bool,
-        can_manage_cloud: bool,
         can_view_audit: bool,
     ) -> Vec<ConfigSection> {
         let mut sections = vec![
@@ -122,11 +117,6 @@ impl ConfigSection {
         if can_manage_export {
             sections.push(Self::DataExport);
         }
-        #[cfg(feature = "cloud")]
-        if can_manage_cloud {
-            sections.push(Self::Cloud);
-        }
-        let _ = can_manage_cloud; // suppress unused warning when cloud feature is off
         #[cfg(feature = "atlas")]
         sections.push(Self::Atlas);
         if can_manage_users {
@@ -156,7 +146,6 @@ pub fn ConfigView() -> Element {
     let can_manage_energy = state.has_permission(Permission::ManageEnergy);
     let can_manage_fdd = state.has_permission(Permission::ManageFdd);
     let can_manage_export = state.has_permission(Permission::ManageExport);
-    let can_manage_cloud = state.has_permission(Permission::ManageCloud);
     let can_view_audit = state.has_permission(Permission::ViewAudit);
     let all_sections = ConfigSection::visible_sections(
         can_manage_users,
@@ -168,7 +157,6 @@ pub fn ConfigView() -> Element {
         can_manage_energy,
         can_manage_fdd,
         can_manage_export,
-        can_manage_cloud,
         can_view_audit,
     );
 
@@ -255,8 +243,6 @@ pub fn ConfigView() -> Element {
                     ConfigSection::Energy => rsx! { super::energy_view::EnergyView {} },
                     ConfigSection::Fdd => rsx! { super::fdd_view::FddView {} },
                     ConfigSection::DataExport => rsx! { super::export_settings::ExportSettingsView {} },
-                    #[cfg(feature = "cloud")]
-                    ConfigSection::Cloud => rsx! { super::cloud_settings::CloudSettingsView {} },
                     ConfigSection::WebServer => rsx! { WebServerSettingsView {} },
                     ConfigSection::AuditLog => rsx! { AuditLogView {} },
                     #[cfg(feature = "atlas")]

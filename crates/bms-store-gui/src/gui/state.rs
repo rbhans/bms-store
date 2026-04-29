@@ -312,40 +312,13 @@ pub enum CloseAction {
     ToRecent,
     /// Return to launcher on the New Project tab.
     ToNewProject,
-    /// Return to launcher on the Supervisor tab.
-    ToSupervisor,
 }
 
-/// What the launcher selected. Drives either the single-site `ProjectGate`
-/// flow or the multi-site `SupervisorGate` flow in `App`.
+/// What the launcher selected. Currently single-project only; enum shape
+/// preserved so a future Multi-site variant can be added cleanly.
 #[derive(Debug, Clone)]
 pub enum LaunchSelection {
-    /// Single-project mode (legacy). The launcher picked one project.
     Single(bms_store_storage::project::ProjectPaths),
-    /// Multi-site supervisor mode. The launcher picked N local projects and
-    /// optionally M remote-site connection profiles to load in one process.
-    Supervisor {
-        local_sites: Vec<bms_store_storage::project::ProjectPaths>,
-        remote_sites: Vec<RemoteSiteConfig>,
-    },
-}
-
-/// Phase 2: in-memory connection profile for one remote `opencrate-bms` site.
-/// Plaintext credentials live here only for the lifetime of one supervisor
-/// session — they are loaded from the encrypted `remote_site_endpoint` table
-/// at launch and never re-persisted in plaintext.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RemoteSiteConfig {
-    /// Stable supervisor-side identifier (UUID).
-    pub config_id: String,
-    /// Display name shown in launcher / dashboard.
-    pub name: String,
-    /// Base URL of the remote opencrate-bms instance, e.g. `https://hq.example.com:8080`.
-    pub base_url: String,
-    /// Username to log in as on the remote site.
-    pub username: String,
-    /// Plaintext password — kept in memory only.
-    pub password: String,
 }
 
 /// What kind of content a nav node represents.
@@ -403,13 +376,7 @@ pub struct NavNode {
 #[derive(Clone)]
 pub struct AppState {
     /// Active site bundle (per-project stores, signals, shutdown).
-    /// In single-site mode this is the only site; in supervisor mode this is the
-    /// currently focused site. The legacy field facade below is populated from
-    /// `site.platform` clones for backwards compat with ~30 view files that read
-    /// stores via field-style access (`state.alarm_store.foo()`).
     pub site: super::site_context::SiteContext,
-    /// Supervisor-level state — site picker, mode, cross-site filter.
-    pub supervisor: super::supervisor_state::SupervisorState,
     pub store: PointStore,
     pub node_store: NodeStore,
     pub event_bus: EventBus,
