@@ -1,0 +1,15 @@
+[application]
+name = "opencrate-bms"
+default_platform = "desktop"
+
+[web.app]
+title = "OpenCrate BMS"
+
+[web.watcher]
+reload_html = true
+
+[web.resource]
+style = ["/assets/style.css"]
+
+[web.resource.dev]
+style = ["/assets/style.css"]
