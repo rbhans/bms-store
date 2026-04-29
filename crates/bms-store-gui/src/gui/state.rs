@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use dioxus::prelude::*;
@@ -30,234 +29,16 @@ use bms_store_storage::store::webhook_store::WebhookStore;
 use bms_store_storage::weather::model::WeatherData;
 use bms_store_storage::weather::service::WeatherService;
 
-// ----------------------------------------------------------------
-// Site map (Mapbox GL JS) data model
-// ----------------------------------------------------------------
 
-/// All content for a site-level interactive map.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct SiteMapData {
-    pub markers: Vec<MapMarker>,
-    pub map_config: MapViewConfig,
+#[derive(Debug, Clone)]
+pub struct WriteCommand {
+    pub device_id: String,
+    pub point_id: String,
+    pub value: PointValue,
+    pub priority: Option<u8>,
 }
 
-impl Default for SiteMapData {
-    fn default() -> Self {
-        Self {
-            markers: Vec::new(),
-            map_config: MapViewConfig::default(),
-        }
-    }
-}
-
-/// A marker placed on the site map.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct MapMarker {
-    pub id: String,
-    pub label: String,
-    pub lat: f64,
-    pub lon: f64,
-    pub address: Option<String>,
-    /// Links to a Building nav node child of this Site.
-    pub building_nav_id: Option<String>,
-    pub color: String,
-    pub icon: MarkerIcon,
-    /// Point bindings for live status display on marker popup.
-    pub status_bindings: Vec<StatusBinding>,
-}
-
-/// A point binding for live status display in a marker popup.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct StatusBinding {
-    pub point_key: String,
-    pub label: String,
-}
-
-/// Marker icon shape.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum MarkerIcon {
-    Circle,
-    Pin,
-    Square,
-    Diamond,
-}
-
-impl MarkerIcon {
-    pub fn all() -> &'static [MarkerIcon] {
-        &[Self::Circle, Self::Pin, Self::Square, Self::Diamond]
-    }
-
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::Circle => "Circle",
-            Self::Pin => "Pin",
-            Self::Square => "Square",
-            Self::Diamond => "Diamond",
-        }
-    }
-}
-
-/// Saved map view position.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct MapViewConfig {
-    pub center_lat: f64,
-    pub center_lon: f64,
-    pub zoom: f64,
-    pub pitch: f64,
-    pub bearing: f64,
-}
-
-impl Default for MapViewConfig {
-    fn default() -> Self {
-        Self {
-            center_lat: 39.8283,
-            center_lon: -98.5795,
-            zoom: 4.0,
-            pitch: 0.0,
-            bearing: 0.0,
-        }
-    }
-}
-
-/// Global Mapbox configuration.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct MapboxConfig {
-    pub access_token: String,
-    pub style: String,
-}
-
-impl Default for MapboxConfig {
-    fn default() -> Self {
-        Self {
-            access_token: String::new(),
-            style: "mapbox://styles/mapbox/dark-v11".into(),
-        }
-    }
-}
-
-const MAPBOX_CONFIG_FILE: &str = "mapbox.json";
-
-/// Save Mapbox config to the project data directory.
-pub fn save_mapbox_config(paths: &ProjectPaths, config: &MapboxConfig) {
-    let path = paths.data_dir.join(MAPBOX_CONFIG_FILE);
-    if let Ok(json) = serde_json::to_string_pretty(config) {
-        let _ = std::fs::write(path, json);
-    }
-}
-
-/// Load Mapbox config from the project data directory.
-pub fn load_mapbox_config(paths: &ProjectPaths) -> MapboxConfig {
-    let path = paths.data_dir.join(MAPBOX_CONFIG_FILE);
-    std::fs::read_to_string(path)
-        .ok()
-        .and_then(|data| serde_json::from_str(&data).ok())
-        .unwrap_or_default()
-}
-
-// ----------------------------------------------------------------
-// Floor plan / page canvas data model
-// ----------------------------------------------------------------
-
-/// All content for a single page canvas.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-pub struct PageData {
-    /// File path to the background image (floor plan).
-    pub background: Option<String>,
-    /// Zones drawn on the canvas.
-    pub zones: Vec<Zone>,
-    /// Equipment symbols placed on the canvas.
-    pub equipment: Vec<Equipment>,
-}
-
-/// Where a zone gets its setpoint value.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum SetpointSource {
-    /// Read from a device point.
-    Point(String),
-    /// Static numeric value.
-    Static(f64),
-}
-
-/// Label display options for a zone on the canvas.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ZoneLabelConfig {
-    pub show_label: bool,
-    pub show_room_number: bool,
-    pub show_temp: bool,
-    pub tooltip_label: bool,
-    pub tooltip_room_number: bool,
-    pub tooltip_temp: bool,
-    pub font_size: f64,
-    pub font_color: String,
-}
-
-impl Default for ZoneLabelConfig {
-    fn default() -> Self {
-        Self {
-            show_label: true,
-            show_room_number: true,
-            show_temp: true,
-            tooltip_label: false,
-            tooltip_room_number: false,
-            tooltip_temp: false,
-            font_size: 24.0,
-            font_color: "#ffffff".into(),
-        }
-    }
-}
-
-/// A polygon zone on the floor plan (room, area, etc.).
-/// Coordinates are in canvas space (default 1920×1080).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Zone {
-    pub id: String,
-    pub label: String,
-    pub room_number: String,
-    /// Device serving this zone (optional).
-    pub device_id: Option<String>,
-    /// Polygon vertices in canvas coordinates.
-    pub points: Vec<(f64, f64)>,
-    pub color: String,
-    /// Point ID for zone temperature reading (within device).
-    pub temp_point_id: Option<String>,
-    /// Setpoint: from a device point or a static value.
-    pub setpoint_source: Option<SetpointSource>,
-    /// Label display options.
-    pub label_config: ZoneLabelConfig,
-    /// Corresponding nav tree node ID (auto-created).
-    pub nav_node_id: Option<String>,
-}
-
-/// Label placement relative to an equipment symbol.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum LabelPlacement {
-    Top,
-    Bottom,
-    Left,
-    Right,
-}
-
-/// Equipment label display options.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct EquipLabelConfig {
-    pub show_label: bool,
-    pub tooltip: bool,
-    pub font_color: String,
-    pub placement: LabelPlacement,
-}
-
-impl Default for EquipLabelConfig {
-    fn default() -> Self {
-        Self {
-            show_label: true,
-            tooltip: false,
-            font_color: "#e0e0e0".into(),
-            placement: LabelPlacement::Bottom,
-        }
-    }
-}
-
-/// Dummy symbol choices for equipment.
+/// Equipment symbol choices — used by the point-group animated symbol display.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum EquipSymbol {
     Gear,
@@ -344,42 +125,6 @@ impl EquipSymbol {
     }
 }
 
-/// An equipment symbol placed on the floor plan.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Equipment {
-    pub id: String,
-    pub label: String,
-    pub device_id: Option<String>,
-    pub x: f64,
-    pub y: f64,
-    pub label_config: EquipLabelConfig,
-    pub symbol: EquipSymbol,
-}
-
-/// Which canvas tool is currently active.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum CanvasTool {
-    Select,
-    Pan,
-    DrawZone,
-    PlaceEquipment,
-}
-
-/// What's selected on the canvas.
-#[derive(Debug, Clone, PartialEq)]
-pub enum CanvasSelection {
-    None,
-    Zone(String),
-    Equipment(String),
-}
-
-#[derive(Debug, Clone)]
-pub struct WriteCommand {
-    pub device_id: String,
-    pub point_id: String,
-    pub value: PointValue,
-    pub priority: Option<u8>,
-}
 
 /// What's shown in the main content area.
 #[derive(Debug, Clone, PartialEq)]
@@ -683,12 +428,6 @@ pub struct AppState {
     pub write_error: Signal<Option<String>>,
     /// Counter for generating unique node IDs.
     pub next_node_id: Signal<u32>,
-    /// Page canvas data, keyed by page node ID.
-    pub pages: Signal<HashMap<String, PageData>>,
-    /// Site map data, keyed by site nav node ID.
-    pub site_maps: Signal<HashMap<String, SiteMapData>>,
-    /// Global Mapbox configuration.
-    pub mapbox_config: Signal<MapboxConfig>,
     /// History query handle.
     pub history_store: HistoryStore,
     /// Saved dashboards.
@@ -826,13 +565,11 @@ impl AppState {
         }
     }
 
-    /// Persist nav tree + page data to disk.
+    /// Persist nav tree to disk.
     pub fn save_layout(&self) {
         let state = SavedLayoutState {
             nav_tree: self.nav_tree.read().clone(),
-            pages: self.pages.read().clone(),
             next_node_id: *self.next_node_id.read(),
-            site_maps: self.site_maps.read().clone(),
         };
         save_layout(&self.project_paths, &state);
     }
@@ -953,10 +690,7 @@ fn find_node_label(nodes: &[NavNode], node_id: &str) -> Option<String> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SavedLayoutState {
     pub nav_tree: Vec<NavNode>,
-    pub pages: HashMap<String, PageData>,
     pub next_node_id: u32,
-    #[serde(default)]
-    pub site_maps: HashMap<String, SiteMapData>,
 }
 
 const LAYOUT_FILE: &str = "layout.json";

@@ -8,7 +8,22 @@ use bms_store_storage::config::profile::PointValue;
 use crate::gui::state::{AppState, EquipSymbol};
 use bms_store_storage::store::point_store::PointStatusFlags;
 
-use super::floor_plan::equip_symbol_path;
+fn equip_symbol_path(sym: &EquipSymbol) -> &'static str {
+    match sym {
+        EquipSymbol::Gear => "M-1.5-8.6h3l.3 2.1c.5.2.9.5 1.3.8l2-.8 1.5 2.6-1.7 1.3c.04.3.06.5.06.8s-.02.5-.06.8l1.7 1.3-1.5 2.6-2-.8c-.4.3-.8.6-1.3.8l-.3 2.1h-3l-.3-2.1c-.5-.2-.9-.5-1.3-.8l-2 .8-1.5-2.6 1.7-1.3a4 4 0 010-1.6l-1.7-1.3 1.5-2.6 2 .8c.4-.3.8-.6 1.3-.8l.3-2.1zM0 3a3 3 0 100-6 3 3 0 000 6z",
+        EquipSymbol::Fan => "M0-2a2 2 0 010 4 2 2 0 01-2-2 2 2 0 012-2zm0-7c1.5 0 3 2 3 5a3 3 0 01-3 2v-7zm0 14c-1.5 0-3-2-3-5a3 3 0 013-2v7zm7-7c0 1.5-2 3-5 3a3 3 0 01-2-3h7zm-14 0c0-1.5 2-3 5-3a3 3 0 012 3h-7z",
+        EquipSymbol::Thermometer => "M-2-9h4a2 2 0 012 2v10a4 4 0 11-8 0V-7a2 2 0 012-2zm1 3v8h2v-8h-2z",
+        EquipSymbol::Valve => "M-8 0l8-8 8 8-8 8-8-8zm5 0a3 3 0 106 0 3 3 0 00-6 0z",
+        EquipSymbol::Pump => "M0-8a8 8 0 110 16 8 8 0 010-16zm0 3a5 5 0 100 10 5 5 0 000-10zm-6 5h12M0-8v16",
+        EquipSymbol::AHU => "M-10-6h20v12h-20zM-10-6v12M10-6v12M-6-2h2v4h-2zM4-2h2v4h-2z",
+        EquipSymbol::Coil => "M-8 0c0-4 4-4 4 0s4 4 4 0 4-4 4 0 4 4 4 0",
+        EquipSymbol::Damper => "M-8-4h16v8h-16zM-6 0h12M-8-4l16 8M-8 4l16-8",
+        EquipSymbol::Filter => "M-6-8l6 8 6-8M-6 8l6-8 6 8M-4-4h8M-4 4h8",
+        EquipSymbol::Compressor => "M0-8a8 8 0 110 16 8 8 0 010-16zM-4-3l8 6M-4 3l8-6",
+        EquipSymbol::HeatExchanger => "M-8-6h16v12h-16zM0-6v12M-4-3v6M4-3v6",
+        EquipSymbol::Sensor => "M0-8a8 8 0 110 16 8 8 0 010-16zM0-4v8M-4 0h8",
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Data model — persisted as "pointGroups" node property on the equipment node

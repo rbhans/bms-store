@@ -18,7 +18,6 @@ use bms_store_storage::store::user_store::{start_user_store_with_path, User, Use
 use super::components::alarm_view::AlarmView;
 use super::components::building_tree::LocationBreadcrumb;
 use super::components::config_view::ConfigView;
-use super::components::floor_plan::FloorPlanCanvas;
 use super::components::login::{AdminSetup, LoginScreen};
 use super::components::point_detail::PointDetail;
 use super::components::point_table::PointTable;
@@ -26,13 +25,12 @@ use super::components::project_launcher::ProjectLauncher;
 use super::components::relationships_section::RelationshipsSection;
 use super::components::schedule_view::ScheduleView;
 use super::components::sidebar::Sidebar;
-use super::components::site_map_view::SiteMapView;
 use super::components::supervisor_gate::SupervisorGate;
 use super::components::toolbar::Toolbar;
 use super::components::trend_chart::TrendView;
 use super::components::weather_view::WeatherView;
 use super::state::{
-    is_site_page, load_mapbox_config, ActiveView, AppState, CloseAction, DashboardTool,
+    ActiveView, AppState, CloseAction, DashboardTool,
     LaunchSelection, RemoteSiteConfig, SidebarTab, WriteCommand,
 };
 use super::theme::{apply_theme_css, load_theme_config, save_theme_config};
@@ -392,19 +390,6 @@ pub(crate) fn ProjectApp(
             .map(|s| s.next_node_id)
             .unwrap_or(1u32)
     });
-    let pages = use_signal(|| {
-        saved_layout
-            .as_ref()
-            .map(|s| s.pages.clone())
-            .unwrap_or_default()
-    });
-    let site_maps = use_signal(|| {
-        saved_layout
-            .as_ref()
-            .map(|s| s.site_maps.clone())
-            .unwrap_or_default()
-    });
-    let mapbox_config = use_signal(|| load_mapbox_config(&project_paths));
     let dashboards = use_signal(Vec::new);
     let active_dashboard_id = use_signal(|| Option::<String>::None);
     let selected_widget = use_signal(|| Option::<String>::None);
@@ -509,9 +494,6 @@ pub(crate) fn ProjectApp(
         write_tx: write_tx.clone(),
         write_error,
         next_node_id,
-        pages,
-        site_maps,
-        mapbox_config,
         history_store: history_store.clone(),
         dashboards,
         active_dashboard_id,
@@ -966,14 +948,7 @@ pub(crate) fn ProjectApp(
                             ActiveView::Alarms => rsx! { },
                             ActiveView::Schedules => rsx! { },
                             ActiveView::History => rsx! { },
-                            ActiveView::Page(id) => {
-                                let is_site = is_site_page(&app_state.nav_tree.read(), id);
-                                if is_site {
-                                    rsx! { SiteMapView { page_id: id.clone() } }
-                                } else {
-                                    rsx! { FloorPlanCanvas { page_id: id.clone() } }
-                                }
-                            },
+                            ActiveView::Page(_) => rsx! { HomeView {} },
                             ActiveView::Device { .. } => rsx! { HomeView {} },
                             ActiveView::Config => rsx! { },
                             ActiveView::Weather => rsx! { },

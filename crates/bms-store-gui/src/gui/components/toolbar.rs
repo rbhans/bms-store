@@ -1,6 +1,5 @@
 use dioxus::prelude::*;
 
-use super::weather_widget::WeatherWidget;
 use crate::gui::state::{ActiveView, AppState, CloseAction, TrendDashboard};
 use crate::gui::theme::BaseMode;
 
@@ -103,7 +102,6 @@ pub fn Toolbar(on_close_project: EventHandler<CloseAction>) -> Element {
                 }
             }
             div { class: "toolbar-right",
-                WeatherWidget {}
                 UserIndicator {}
             }
         }

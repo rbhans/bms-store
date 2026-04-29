@@ -169,14 +169,6 @@ fn collect_device_ids(node: &NavNode, out: &mut Vec<String>) {
     }
 }
 
-/// Collect all nav node IDs in a subtree (including the root node itself).
-fn collect_nav_ids(node: &NavNode, out: &mut Vec<String>) {
-    out.push(node.id.clone());
-    for child in &node.children {
-        collect_nav_ids(child, out);
-    }
-}
-
 /// Inline add-node button + form.
 #[component]
 fn AddNodeButton(parent_id: Option<String>, depth: u32, parent_spatial: String) -> Element {
@@ -650,20 +642,6 @@ fn NavNodeView(node: NavNode, depth: u32) -> Element {
                                 spawn(async move {
                                     clear_device_location_refs(&ns, &dev_id).await;
                                 });
-                            }
-
-                            // Remove zones from page data whose nav_node_id is in the deleted subtree
-                            let mut deleted_nav_ids = Vec::new();
-                            collect_nav_ids(&dnode, &mut deleted_nav_ids);
-                            {
-                                let deleted_set: std::collections::HashSet<&str> =
-                                    deleted_nav_ids.iter().map(|s| s.as_str()).collect();
-                                let mut pages = state.pages.write();
-                                for page_data in pages.values_mut() {
-                                    page_data.zones.retain(|z| {
-                                        z.nav_node_id.as_deref().map_or(true, |nid| !deleted_set.contains(nid))
-                                    });
-                                }
                             }
 
                             let mut tree = state.nav_tree.write();
