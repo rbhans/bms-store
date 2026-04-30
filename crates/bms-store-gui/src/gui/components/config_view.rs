@@ -1301,6 +1301,12 @@ fn BatchTagEditor(batch_selected: Signal<HashSet<String>>, entity_version: Signa
                 mixed_types,
             }
 
+            // Assign to Equipment / Space
+            BatchAssignRef {
+                selected_ids: selected.iter().cloned().collect(),
+                entities: entities.to_vec(),
+            }
+
             // Add tag to all
             div { class: "config-add-tag-section",
                 h4 { class: "config-section-title", "Add Tag to All" }
@@ -1872,6 +1878,332 @@ fn BatchApplyPrototype(
                                 pending_proto.set(None);
                             },
                             on_cancel: move |_| pending_proto.set(None),
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------
+// Batch Assign Ref (equipRef / spaceRef)
+// ----------------------------------------------------------------
+
+/// Assign selected entities to an equipment or space entity via equipRef/spaceRef.
+/// Populates dropdowns from entity store (entities with `equip` or `space` entity type).
+#[component]
+fn BatchAssignRef(selected_ids: Vec<String>, entities: Vec<Entity>) -> Element {
+    let state = use_context::<AppState>();
+
+    // Load equip entities from entity store
+    let es_equip = state.entity_store.clone();
+    let equip_list_res = use_resource(move || {
+        let store = es_equip.clone();
+        async move {
+            let all = store.list_entities(Some("equip"), None).await;
+            all.into_iter()
+                .filter(|e| e.tags.contains_key("equip"))
+                .map(|e| {
+                    let label = if e.dis.is_empty() {
+                        e.id.clone()
+                    } else {
+                        e.dis.clone()
+                    };
+                    (e.id, label)
+                })
+                .collect::<Vec<(String, String)>>()
+        }
+    });
+
+    // Load space entities from entity store
+    let es_space = state.entity_store.clone();
+    let space_list_res = use_resource(move || {
+        let store = es_space.clone();
+        async move {
+            let all = store.list_entities(Some("space"), None).await;
+            all.into_iter()
+                .filter(|e| e.tags.contains_key("space"))
+                .map(|e| {
+                    let label = if e.dis.is_empty() {
+                        e.id.clone()
+                    } else {
+                        e.dis.clone()
+                    };
+                    (e.id, label)
+                })
+                .collect::<Vec<(String, String)>>()
+        }
+    });
+
+    let equip_list = equip_list_res
+        .read()
+        .as_deref()
+        .unwrap_or(&[])
+        .to_vec();
+    let space_list = space_list_res
+        .read()
+        .as_deref()
+        .unwrap_or(&[])
+        .to_vec();
+
+    let mut equip_search = use_signal(String::new);
+    let mut space_search = use_signal(String::new);
+    let mut selected_equip: Signal<Option<(String, String)>> = use_signal(|| None);
+    let mut selected_space: Signal<Option<(String, String)>> = use_signal(|| None);
+    let mut pending_equip_assign: Signal<bool> = use_signal(|| false);
+    let mut pending_space_assign: Signal<bool> = use_signal(|| false);
+
+    let eq_filter = equip_search.read().to_lowercase();
+    let sp_filter = space_search.read().to_lowercase();
+
+    let filtered_equip: Vec<_> = equip_list
+        .iter()
+        .filter(|(_, label)| eq_filter.is_empty() || label.to_lowercase().contains(&eq_filter))
+        .collect();
+    let filtered_space: Vec<_> = space_list
+        .iter()
+        .filter(|(_, label)| sp_filter.is_empty() || label.to_lowercase().contains(&sp_filter))
+        .collect();
+
+    let count = selected_ids.len();
+
+    // Preview rows for equipRef assignment
+    let equip_preview_rows: Vec<PreviewRow> = if let Some((_, equip_label)) =
+        selected_equip.read().clone()
+    {
+        entities
+            .iter()
+            .map(|e| {
+                let before = e
+                    .tags
+                    .get("equipRef")
+                    .and_then(|v| v.clone())
+                    .unwrap_or_else(|| "—".to_string());
+                let change_kind = if e.tags.contains_key("equipRef") {
+                    ChangeKind::Modify
+                } else {
+                    ChangeKind::Add
+                };
+                PreviewRow {
+                    id: e.id.clone(),
+                    label: if e.dis.is_empty() {
+                        e.id.clone()
+                    } else {
+                        e.dis.clone()
+                    },
+                    before,
+                    after: equip_label.clone(),
+                    change_kind,
+                }
+            })
+            .collect()
+    } else {
+        vec![]
+    };
+
+    // Preview rows for spaceRef assignment
+    let space_preview_rows: Vec<PreviewRow> = if let Some((_, space_label)) =
+        selected_space.read().clone()
+    {
+        entities
+            .iter()
+            .map(|e| {
+                let before = e
+                    .tags
+                    .get("spaceRef")
+                    .and_then(|v| v.clone())
+                    .unwrap_or_else(|| "—".to_string());
+                let change_kind = if e.tags.contains_key("spaceRef") {
+                    ChangeKind::Modify
+                } else {
+                    ChangeKind::Add
+                };
+                PreviewRow {
+                    id: e.id.clone(),
+                    label: if e.dis.is_empty() {
+                        e.id.clone()
+                    } else {
+                        e.dis.clone()
+                    },
+                    before,
+                    after: space_label.clone(),
+                    change_kind,
+                }
+            })
+            .collect()
+    } else {
+        vec![]
+    };
+
+    let equip_assign_label = selected_equip
+        .read()
+        .as_ref()
+        .map(|(_, l)| l.clone())
+        .unwrap_or_default();
+    let space_assign_label = selected_space
+        .read()
+        .as_ref()
+        .map(|(_, l)| l.clone())
+        .unwrap_or_default();
+
+    rsx! {
+        div { class: "config-batch-assign-section",
+            h4 { class: "config-section-title", "Assign References" }
+
+            // Assign to Equipment
+            div { class: "config-assign-group",
+                label { class: "config-assign-label", "Assign to Equipment (equipRef)" }
+                div { class: "config-assign-search",
+                    input {
+                        class: "config-input",
+                        r#type: "text",
+                        placeholder: "Search equipment...",
+                        value: "{equip_search}",
+                        oninput: move |e| equip_search.set(e.value()),
+                    }
+                }
+                if !filtered_equip.is_empty() {
+                    div { class: "config-assign-dropdown",
+                        for (id, label) in &filtered_equip {
+                            {
+                                let id_c = id.clone();
+                                let label_c = label.clone();
+                                let is_selected = selected_equip
+                                    .read()
+                                    .as_ref()
+                                    .map(|(sid, _)| sid == &id_c)
+                                    .unwrap_or(false);
+                                rsx! {
+                                    div {
+                                        class: if is_selected { "config-assign-option selected" } else { "config-assign-option" },
+                                        onclick: move |_| {
+                                            selected_equip.set(Some((id_c.clone(), label_c.clone())));
+                                        },
+                                        "{label}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if selected_equip.read().is_some() {
+                    button {
+                        class: "config-btn config-btn-primary",
+                        onclick: move |_| pending_equip_assign.set(true),
+                        "Assign {count} to {equip_assign_label}"
+                    }
+                }
+            }
+
+            // Assign to Space
+            div { class: "config-assign-group",
+                label { class: "config-assign-label", "Assign to Space (spaceRef)" }
+                div { class: "config-assign-search",
+                    input {
+                        class: "config-input",
+                        r#type: "text",
+                        placeholder: "Search spaces...",
+                        value: "{space_search}",
+                        oninput: move |e| space_search.set(e.value()),
+                    }
+                }
+                if !filtered_space.is_empty() {
+                    div { class: "config-assign-dropdown",
+                        for (id, label) in &filtered_space {
+                            {
+                                let id_c = id.clone();
+                                let label_c = label.clone();
+                                let is_selected = selected_space
+                                    .read()
+                                    .as_ref()
+                                    .map(|(sid, _)| sid == &id_c)
+                                    .unwrap_or(false);
+                                rsx! {
+                                    div {
+                                        class: if is_selected { "config-assign-option selected" } else { "config-assign-option" },
+                                        onclick: move |_| {
+                                            selected_space.set(Some((id_c.clone(), label_c.clone())));
+                                        },
+                                        "{label}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if selected_space.read().is_some() {
+                    button {
+                        class: "config-btn config-btn-primary",
+                        onclick: move |_| pending_space_assign.set(true),
+                        "Assign {count} to {space_assign_label}"
+                    }
+                }
+            }
+
+            // PreviewModal for equipRef assign
+            if *pending_equip_assign.read() {
+                {
+                    let es = state.entity_store.clone();
+                    let ids = selected_ids.clone();
+                    let equip_id = selected_equip
+                        .read()
+                        .as_ref()
+                        .map(|(id, _)| id.clone())
+                        .unwrap_or_default();
+                    let equip_id_apply = equip_id.clone();
+                    rsx! {
+                        PreviewModal {
+                            title: format!("Assign equipRef: {} items to {}", count, equip_assign_label),
+                            rows: equip_preview_rows,
+                            on_confirm: move |_| {
+                                let store = es.clone();
+                                let entity_ids = ids.clone();
+                                let target = equip_id_apply.clone();
+                                spawn(async move {
+                                    for id in &entity_ids {
+                                        let _ = store
+                                            .set_tag(id, "equipRef", Some(&target))
+                                            .await;
+                                    }
+                                });
+                                pending_equip_assign.set(false);
+                            },
+                            on_cancel: move |_| pending_equip_assign.set(false),
+                        }
+                    }
+                }
+            }
+
+            // PreviewModal for spaceRef assign
+            if *pending_space_assign.read() {
+                {
+                    let es = state.entity_store.clone();
+                    let ids = selected_ids.clone();
+                    let space_id = selected_space
+                        .read()
+                        .as_ref()
+                        .map(|(id, _)| id.clone())
+                        .unwrap_or_default();
+                    let space_id_apply = space_id.clone();
+                    rsx! {
+                        PreviewModal {
+                            title: format!("Assign spaceRef: {} items to {}", count, space_assign_label),
+                            rows: space_preview_rows,
+                            on_confirm: move |_| {
+                                let store = es.clone();
+                                let entity_ids = ids.clone();
+                                let target = space_id_apply.clone();
+                                spawn(async move {
+                                    for id in &entity_ids {
+                                        let _ = store
+                                            .set_tag(id, "spaceRef", Some(&target))
+                                            .await;
+                                    }
+                                });
+                                pending_space_assign.set(false);
+                            },
+                            on_cancel: move |_| pending_space_assign.set(false),
                         }
                     }
                 }
