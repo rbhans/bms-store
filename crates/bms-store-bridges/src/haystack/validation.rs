@@ -24,7 +24,7 @@ impl Severity {
 }
 
 /// An issue raised by the validation rules engine.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ValidationIssue {
     /// Severity level.
     pub severity: Severity,

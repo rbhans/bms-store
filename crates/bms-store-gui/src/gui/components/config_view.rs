@@ -5,6 +5,7 @@ use dioxus::prelude::*;
 use crate::gui::state::AppState;
 use bms_store_bridges::haystack::prototypes::{EQUIP_PROTOTYPES, POINT_PROTOTYPES};
 use bms_store_bridges::haystack::tags::{self, TagKind};
+use bms_store_bridges::haystack::validation::{validate_tags, Severity, ValidationIssue};
 use bms_store_storage::store::entity_store::Entity;
 
 use bms_store_storage::auth::Permission;
@@ -12,6 +13,7 @@ use bms_store_storage::store::node_store::NodeRecord;
 
 use super::audit_log_view::AuditLogView;
 use super::discovery_view::DiscoveryView;
+use super::preview_modal::{ChangeKind, PreviewModal, PreviewRow};
 use super::programming_view::ProgrammingView;
 use super::theme_settings::ThemeSettingsView;
 use super::user_management::UserManagementView;
@@ -921,6 +923,9 @@ fn EntityTagEditor(entity: Entity, entity_version: Signal<u64>) -> Element {
     let mut sorted_tags: Vec<_> = entity.tags.iter().collect();
     sorted_tags.sort_by_key(|(name, _)| (*name).clone());
 
+    // Run validation against current in-memory tag state
+    let validation_issues = validate_tags(&etype, &entity.tags);
+
     rsx! {
         div { class: "config-tag-editor",
             // Header
@@ -936,6 +941,11 @@ fn EntityTagEditor(entity: Entity, entity_version: Signal<u64>) -> Element {
                 }
                 h3 { "{entity.dis}" }
                 span { class: "config-entity-id-label", "{entity.id}" }
+            }
+
+            // Inline validation banners
+            if !validation_issues.is_empty() {
+                ValidationBanner { issues: validation_issues }
             }
 
             // Current tags
@@ -1056,6 +1066,46 @@ fn BatchTagEditor(batch_selected: Signal<HashSet<String>>, entity_version: Signa
     let entity_count = entities.len();
     let untagged_count = count.saturating_sub(entity_count);
 
+    // Determine dominant entity type for validation
+    let equip_count = entities.iter().filter(|e| e.entity_type == "equip").count();
+    let point_count = entities.iter().filter(|e| e.entity_type == "point").count();
+    let dominant_type = if equip_count >= point_count && equip_count > 0 {
+        "equip"
+    } else if point_count > 0 {
+        "point"
+    } else {
+        "equip" // fallback
+    };
+    let mixed_types = equip_count > 0 && point_count > 0;
+
+    // Build merged tag map for validation (union of all tags present in at least one entity)
+    let merged_tags: HashMap<String, Option<String>> = {
+        let mut m: HashMap<String, Option<String>> = HashMap::new();
+        for e in entities {
+            for (k, v) in &e.tags {
+                m.entry(k.clone()).or_insert_with(|| v.clone());
+            }
+        }
+        m
+    };
+
+    // Run validation on the merged view
+    let validation_issues: Vec<ValidationIssue> = if !entities.is_empty() {
+        let mut issues = validate_tags(dominant_type, &merged_tags);
+        // If mixed, also validate as point
+        if mixed_types {
+            let point_issues = validate_tags("point", &merged_tags);
+            for pi in point_issues {
+                if !issues.iter().any(|i: &ValidationIssue| i.message == pi.message) {
+                    issues.push(pi);
+                }
+            }
+        }
+        issues
+    } else {
+        vec![]
+    };
+
     let mut batch_tag_search = use_signal(String::new);
     let mut batch_show_dropdown = use_signal(|| false);
 
@@ -1087,6 +1137,11 @@ fn BatchTagEditor(batch_selected: Signal<HashSet<String>>, entity_version: Signa
                 if untagged_count > 0 {
                     span { class: "config-hint", "({untagged_count} untagged)" }
                 }
+            }
+
+            // Validation banners for the merged batch view
+            if !validation_issues.is_empty() {
+                ValidationBanner { issues: validation_issues }
             }
 
             // Auto-tag all selected items
@@ -1289,6 +1344,81 @@ fn BatchTagEditor(batch_selected: Signal<HashSet<String>>, entity_version: Signa
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------
+// Validation Banner
+// ----------------------------------------------------------------
+
+/// Displays inline validation issues (errors, warnings, info) for a tag set.
+/// Does not block saving — it is advisory only.
+#[component]
+fn ValidationBanner(issues: Vec<ValidationIssue>) -> Element {
+    let errors: Vec<&ValidationIssue> = issues
+        .iter()
+        .filter(|i| i.severity == Severity::Error)
+        .collect();
+    let warnings: Vec<&ValidationIssue> = issues
+        .iter()
+        .filter(|i| i.severity == Severity::Warning)
+        .collect();
+    let infos: Vec<&ValidationIssue> = issues
+        .iter()
+        .filter(|i| i.severity == Severity::Info)
+        .collect();
+
+    rsx! {
+        div { class: "validation-banner-group",
+            for issue in &errors {
+                div { class: "validation-banner validation-error",
+                    span { class: "validation-icon", "!" }
+                    div { class: "validation-content",
+                        span { class: "validation-message", "{issue.message}" }
+                        if !issue.tags_involved.is_empty() {
+                            span { class: "validation-tags",
+                                "Tags: {issue.tags_involved.join(\", \")}"
+                            }
+                        }
+                        if let Some(ref fix) = issue.suggested_fix {
+                            span { class: "validation-fix", "Fix: {fix}" }
+                        }
+                    }
+                }
+            }
+            for issue in &warnings {
+                div { class: "validation-banner validation-warning",
+                    span { class: "validation-icon", "!" }
+                    div { class: "validation-content",
+                        span { class: "validation-message", "{issue.message}" }
+                        if !issue.tags_involved.is_empty() {
+                            span { class: "validation-tags",
+                                "Tags: {issue.tags_involved.join(\", \")}"
+                            }
+                        }
+                        if let Some(ref fix) = issue.suggested_fix {
+                            span { class: "validation-fix", "Fix: {fix}" }
+                        }
+                    }
+                }
+            }
+            for issue in &infos {
+                div { class: "validation-banner validation-info",
+                    span { class: "validation-icon", "i" }
+                    div { class: "validation-content",
+                        span { class: "validation-message", "{issue.message}" }
+                        if !issue.tags_involved.is_empty() {
+                            span { class: "validation-tags",
+                                "Tags: {issue.tags_involved.join(\", \")}"
+                            }
+                        }
+                        if let Some(ref fix) = issue.suggested_fix {
+                            span { class: "validation-fix", "Fix: {fix}" }
                         }
                     }
                 }
