@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use dioxus::prelude::*;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use bms_store_storage::config::profile::PointValue;
@@ -117,6 +118,7 @@ pub fn PointTable() -> Element {
     let mut bulk_suffix = use_signal(String::new);
     let mut show_preview = use_signal(|| false);
     let mut bulk_rename_status: Signal<Option<String>> = use_signal(|| None);
+    let mut bulk_regex_error: Signal<Option<String>> = use_signal(|| None);
 
     // Drag-and-drop state (edit mode only)
     let mut dragging_point: Signal<Option<String>> = use_signal(|| None);
@@ -454,13 +456,37 @@ pub fn PointTable() -> Element {
                         }
                     };
 
+                    // When regex mode is on, attempt to compile the pattern once and
+                    // reuse it for every row.  An invalid pattern sets bulk_regex_error
+                    // which disables the Preview button.
+                    let compiled_regex: Option<Regex> = if use_regex && !find_val.is_empty() {
+                        match Regex::new(&find_val) {
+                            Ok(re) => {
+                                bulk_regex_error.set(None);
+                                Some(re)
+                            }
+                            Err(e) => {
+                                bulk_regex_error.set(Some(format!("Invalid regex: {e}")));
+                                None
+                            }
+                        }
+                    } else {
+                        bulk_regex_error.set(None);
+                        None
+                    };
+
                     let compute_new_name = |name: &str| -> String {
                         let mut result = name.to_string();
                         if !find_val.is_empty() {
-                            // Regex mode: naive implementation — treat pattern as literal
-                            // (full regex support requires the `regex` crate; not yet in workspace)
-                            let _ = use_regex; // suppressed — literal replace used in both modes
-                            result = result.replace(&find_val, &replace_val);
+                            if use_regex {
+                                if let Some(ref re) = compiled_regex {
+                                    result = re.replace_all(name, replace_val.as_str()).into_owned();
+                                }
+                                // If compiled_regex is None, the pattern is invalid — leave
+                                // result unchanged so the preview shows no diff.
+                            } else {
+                                result = result.replace(&find_val, &replace_val);
+                            }
                         }
                         if !prefix_val.is_empty() {
                             result = format!("{prefix_val}{result}");
@@ -598,6 +624,11 @@ pub fn PointTable() -> Element {
                                             }
                                         }
                                     }
+                                    if let Some(ref err) = *bulk_regex_error.read() {
+                                        div { class: "pt-bulk-rename-regex-error",
+                                            span { class: "validation-warning", "{err}" }
+                                        }
+                                    }
                                     div { class: "pt-bulk-rename-footer",
                                         button {
                                             class: "btn-secondary",
@@ -606,6 +637,7 @@ pub fn PointTable() -> Element {
                                         }
                                         button {
                                             class: "btn-primary",
+                                            disabled: bulk_regex_error.read().is_some(),
                                             onclick: move |_| show_preview.set(true),
                                             "Preview Changes"
                                         }
@@ -685,6 +717,7 @@ pub fn PointTable() -> Element {
                             bulk_suffix.set(String::new());
                             show_preview.set(false);
                             bulk_rename_status.set(None);
+                            bulk_regex_error.set(None);
                             show_bulk_rename.set(true);
                         },
                         "Bulk Rename"
