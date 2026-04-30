@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use dioxus::prelude::*;
 
 use bms_store_storage::discovery::model::{DeviceState, DiscoveredDevice, DiscoveredPoint, PointKindHint};
+use bms_store_storage::store::naming_rule_store::{NamingRule, NamingRuleKind};
 use bms_store_bridges::discovery::naming;
 use crate::gui::state::AppState;
 
@@ -45,6 +46,25 @@ pub(crate) fn render_group_editor(
     let svc_template = state.discovery_service.clone();
 
     let audit_state = state.clone();
+
+    // Saved naming rules state (deliverable 4)
+    let naming_rule_store = state.naming_rule_store.clone();
+    let mut saved_rules: Signal<Vec<NamingRule>> = use_signal(Vec::new);
+    let mut show_save_rule_modal = use_signal(|| false);
+    let mut save_rule_name_draft = use_signal(String::new);
+    let mut rule_status: Signal<Option<String>> = use_signal(|| None);
+
+    // Load saved rules on mount
+    {
+        let store = naming_rule_store.clone();
+        use_effect(move || {
+            let store = store.clone();
+            spawn(async move {
+                let rules = store.list_rules().await;
+                saved_rules.set(rules);
+            });
+        });
+    }
     rsx! {
         div { class: "discovery-group-editor",
             // Header
@@ -247,6 +267,174 @@ pub(crate) fn render_group_editor(
                         },
                         "Replace All"
                     }
+                }
+            }
+
+            // ── Saved naming rules (deliverable 4) ──
+            div { class: "discovery-naming-rules",
+                h4 { "Saved Naming Rules" }
+
+                // Load Rule dropdown
+                {
+                    let rules = saved_rules.read();
+                    if !rules.is_empty() {
+                        rsx! {
+                            div { class: "discovery-find-replace-row",
+                                select {
+                                    class: "discovery-input",
+                                    onchange: {
+                                        let rules_snap = rules.iter().cloned().collect::<Vec<_>>();
+                                        move |e: Event<FormData>| {
+                                            let id = e.value();
+                                            if id.is_empty() { return; }
+                                            if let Some(rule) = rules_snap.iter().find(|r| r.id == id) {
+                                                // Apply rule config to group editor state
+                                                match rule.kind {
+                                                    NamingRuleKind::FindReplace => {
+                                                        let find = rule.spec.get("find").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                                                        let replace = rule.spec.get("replace").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                                                        group_find_text.set(find);
+                                                        group_replace_text.set(replace);
+                                                    }
+                                                    NamingRuleKind::Template => {
+                                                        let tpl = rule.spec.get("template").and_then(|v| v.as_str()).unwrap_or("{device} {point}").to_string();
+                                                        group_template_text.set(tpl);
+                                                    }
+                                                    NamingRuleKind::Sequence => {
+                                                        // Nothing to preload for sequence — just clear status
+                                                    }
+                                                }
+                                                rule_status.set(Some(format!("Loaded rule: {}", rule.name)));
+                                            }
+                                        }
+                                    },
+                                    option { value: "", "Load a saved rule..." }
+                                    for rule in rules.iter() {
+                                        option { value: "{rule.id}", "{rule.name} ({rule.kind.as_str()})" }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        rsx! { p { class: "discovery-hint", "No saved rules yet." } }
+                    }
+                }
+
+                // Save Rule button — saves current find/replace or template
+                div { class: "discovery-find-replace-row",
+                    if *show_save_rule_modal.read() {
+                        input {
+                            class: "discovery-input",
+                            r#type: "text",
+                            placeholder: "Rule name...",
+                            value: "{save_rule_name_draft.read()}",
+                            oninput: move |e| save_rule_name_draft.set(e.value()),
+                        }
+                        button {
+                            class: "discovery-action-btn accept primary",
+                            disabled: save_rule_name_draft.read().is_empty(),
+                            onclick: {
+                                let store = naming_rule_store.clone();
+                                move |_| {
+                                    let rule_name = save_rule_name_draft.read().clone();
+                                    if rule_name.is_empty() { return; }
+                                    // Determine which kind to save based on what's filled in
+                                    let find = group_find_text.read().clone();
+                                    let replace = group_replace_text.read().clone();
+                                    let template = group_template_text.read().clone();
+                                    let (kind, spec) = if !find.is_empty() {
+                                        (NamingRuleKind::FindReplace, serde_json::json!({ "find": find, "replace": replace }))
+                                    } else {
+                                        (NamingRuleKind::Template, serde_json::json!({ "template": template }))
+                                    };
+                                    let store = store.clone();
+                                    spawn(async move {
+                                        let now = std::time::SystemTime::now()
+                                            .duration_since(std::time::UNIX_EPOCH)
+                                            .unwrap_or_default()
+                                            .as_millis() as i64;
+                                        let rule = NamingRule {
+                                            id: uuid::Uuid::new_v4().to_string(),
+                                            name: rule_name.clone(),
+                                            kind,
+                                            spec,
+                                            created_ms: now,
+                                            updated_ms: now,
+                                        };
+                                        match store.create_rule(rule).await {
+                                            Ok(_) => {
+                                                let updated = store.list_rules().await;
+                                                saved_rules.set(updated);
+                                                rule_status.set(Some(format!("Saved rule \"{rule_name}\"")));
+                                                save_rule_name_draft.set(String::new());
+                                                show_save_rule_modal.set(false);
+                                            }
+                                            Err(e) => {
+                                                rule_status.set(Some(format!("Error saving rule: {e}")));
+                                            }
+                                        }
+                                    });
+                                }
+                            },
+                            "Save"
+                        }
+                        button {
+                            class: "discovery-action-btn",
+                            onclick: move |_| show_save_rule_modal.set(false),
+                            "Cancel"
+                        }
+                    } else {
+                        button {
+                            class: "discovery-action-btn",
+                            onclick: move |_| {
+                                save_rule_name_draft.set(String::new());
+                                show_save_rule_modal.set(true);
+                            },
+                            "Save Current Rule"
+                        }
+                    }
+                }
+
+                // Delete rule
+                {
+                    let rules = saved_rules.read();
+                    if !rules.is_empty() {
+                        rsx! {
+                            div { class: "discovery-find-replace-row",
+                                select {
+                                    class: "discovery-input",
+                                    onchange: {
+                                        let store = naming_rule_store.clone();
+                                        let rules_snap = rules.iter().cloned().collect::<Vec<_>>();
+                                        move |e: Event<FormData>| {
+                                            let id = e.value();
+                                            if id.is_empty() { return; }
+                                            if rules_snap.iter().any(|r| r.id == id) {
+                                                let store = store.clone();
+                                                let id_del = id.clone();
+                                                spawn(async move {
+                                                    let _ = store.delete_rule(&id_del).await;
+                                                    let updated = store.list_rules().await;
+                                                    saved_rules.set(updated);
+                                                    rule_status.set(Some("Rule deleted.".to_string()));
+                                                });
+                                            }
+                                        }
+                                    },
+                                    option { value: "", "Delete a rule..." }
+                                    for rule in rules.iter() {
+                                        option { value: "{rule.id}", "{rule.name}" }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        rsx! {}
+                    }
+                }
+
+                if let Some(ref msg) = *rule_status.read() {
+                    span { class: "discovery-bulk-status", "{msg}" }
                 }
             }
 
