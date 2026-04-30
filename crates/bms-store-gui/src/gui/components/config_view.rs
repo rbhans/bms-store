@@ -1109,6 +1109,8 @@ fn BatchTagEditor(batch_selected: Signal<HashSet<String>>, entity_version: Signa
 
     let mut batch_tag_search = use_signal(String::new);
     let mut batch_show_dropdown = use_signal(|| false);
+    // pending tag add for PreviewModal dry-run
+    let mut pending_batch_tag: Signal<Option<String>> = use_signal(|| None);
 
     let query = batch_tag_search.read().to_lowercase();
     // Show all tags (equip + point combined) for batch
@@ -1307,7 +1309,7 @@ fn BatchTagEditor(batch_selected: Signal<HashSet<String>>, entity_version: Signa
                 entities: entities.to_vec(),
             }
 
-            // Add tag to all
+            // Add tag to all (routes through PreviewModal for confirmation)
             div { class: "config-add-tag-section",
                 h4 { class: "config-section-title", "Add Tag to All" }
                 div { class: "config-tag-search-wrap",
@@ -1331,8 +1333,6 @@ fn BatchTagEditor(batch_selected: Signal<HashSet<String>>, entity_version: Signa
                                 let tname = tag_def.name.to_string();
                                 let tkind = tag_def.kind.clone();
                                 let tdoc = tag_def.doc;
-                                let es = state.entity_store.clone();
-                                let sel = selected.clone();
 
                                 rsx! {
                                     div {
@@ -1342,22 +1342,73 @@ fn BatchTagEditor(batch_selected: Signal<HashSet<String>>, entity_version: Signa
                                             batch_tag_search.set(String::new());
 
                                             if tkind == TagKind::Marker {
-                                                let store = es.clone();
-                                                let ids: Vec<String> = sel.iter().cloned().collect();
-                                                let name = tname.clone();
-                                                spawn(async move {
-                                                    for id in &ids {
-                                                        let _ = store.set_tag(id, &name, None).await;
-                                                    }
-                                                });
+                                                // Queue for PreviewModal confirmation
+                                                pending_batch_tag.set(Some(tname.clone()));
                                             }
-                                            // TODO: value tags in batch mode need input
+                                            // Value tags: future work — only markers batch-apply
                                         },
                                         span { class: "config-tag-opt-name", "{tname}" }
                                         span { class: "config-tag-opt-doc", "{tdoc}" }
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            // Dry-run preview modal for batch tag add
+            if let Some(ref tag_name) = *pending_batch_tag.read() {
+                {
+                    let es = state.entity_store.clone();
+                    let sel = selected.clone();
+                    let tag_name_title = tag_name.clone();
+                    let tag_name_apply = tag_name.clone();
+
+                    // Build before/after rows now (capture entities snapshot)
+                    let preview_rows: Vec<PreviewRow> = entities
+                        .iter()
+                        .map(|e| {
+                            let before = e
+                                .tags
+                                .get(tag_name)
+                                .map(|v| v.clone().unwrap_or_else(|| "(marker)".to_string()))
+                                .unwrap_or_else(|| "—".to_string());
+                            let change_kind = if e.tags.contains_key(tag_name.as_str()) {
+                                ChangeKind::NoOp
+                            } else {
+                                ChangeKind::Add
+                            };
+                            PreviewRow {
+                                id: e.id.clone(),
+                                label: if e.dis.is_empty() {
+                                    e.id.clone()
+                                } else {
+                                    e.dis.clone()
+                                },
+                                before,
+                                after: "(marker)".to_string(),
+                                change_kind,
+                            }
+                        })
+                        .collect();
+
+                    rsx! {
+                        PreviewModal {
+                            title: format!("Add tag '{tag_name_title}' to {count} items"),
+                            rows: preview_rows,
+                            on_confirm: move |_| {
+                                let store = es.clone();
+                                let ids: Vec<String> = sel.iter().cloned().collect();
+                                let name = tag_name_apply.clone();
+                                spawn(async move {
+                                    for id in &ids {
+                                        let _ = store.set_tag(id, &name, None).await;
+                                    }
+                                });
+                                pending_batch_tag.set(None);
+                            },
+                            on_cancel: move |_| pending_batch_tag.set(None),
                         }
                     }
                 }
