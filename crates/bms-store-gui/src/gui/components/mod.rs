@@ -25,6 +25,7 @@ pub mod modbus_device_registers;
 pub mod mqtt_settings;
 pub mod plugin_manager;
 pub mod point_detail;
+pub mod preview_modal;
 pub mod point_table;
 pub mod programming_view;
 pub mod project_launcher;

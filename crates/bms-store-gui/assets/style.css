@@ -8884,3 +8884,195 @@ textarea.discovery-input {
         font-size: 12px;
     }
 }
+
+/* ================================================================
+   Preview Modal — shared bulk-op dry-run component
+   ================================================================ */
+
+.preview-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.preview-modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    width: min(900px, 92vw);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* Header */
+.preview-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.preview-modal-title {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.preview-modal-count {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.preview-modal-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1;
+}
+
+.preview-modal-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+/* Filter toggles */
+.preview-modal-filters {
+    display: flex;
+    gap: 6px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.preview-filter-btn {
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 0.15s;
+}
+
+.preview-filter-btn.preview-filter-active {
+    opacity: 1;
+    color: var(--text-primary);
+}
+
+.preview-filter-btn:hover {
+    opacity: 0.85;
+}
+
+/* Body — scrollable table */
+.preview-modal-body {
+    overflow-y: auto;
+    flex: 1 1 0;
+    padding: 0;
+}
+
+.preview-modal-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 32px;
+    font-size: 13px;
+}
+
+.preview-modal-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.preview-modal-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-light);
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.preview-modal-table tbody tr {
+    border-bottom: 1px solid var(--border);
+}
+
+.preview-modal-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.preview-modal-table td {
+    padding: 7px 12px;
+    vertical-align: middle;
+    color: var(--text-primary);
+}
+
+.preview-col-label {
+    font-weight: 500;
+    min-width: 160px;
+}
+
+.preview-col-before,
+.preview-col-after {
+    min-width: 140px;
+}
+
+.preview-value {
+    font-family: monospace;
+    font-size: 12px;
+}
+
+/* Row-level tint by change kind */
+.preview-change-add    { border-left: 3px solid var(--success); }
+.preview-change-modify { border-left: 3px solid var(--value-color); }
+.preview-change-remove { border-left: 3px solid var(--error); }
+.preview-change-noop   { border-left: 3px solid var(--border-light); opacity: 0.65; }
+
+/* Badge chips in the Change column */
+.preview-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.preview-badge.preview-change-add    { background: rgba(125, 184, 125, 0.15); color: var(--success); }
+.preview-badge.preview-change-modify { background: rgba(232, 168, 124, 0.15); color: var(--value-color); }
+.preview-badge.preview-change-remove { background: rgba(212, 86, 78, 0.15);   color: var(--error); }
+.preview-badge.preview-change-noop   { background: var(--bg-surface); color: var(--text-muted); }
+
+/* Footer */
+.preview-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
