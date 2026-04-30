@@ -996,10 +996,11 @@ fn EntityTagEditor(entity: Entity, entity_version: Signal<u64>) -> Element {
                 current_tags: entity.tags.clone(),
             }
 
-            // Apply prototype
+            // Apply prototype (with PreviewModal)
             ApplyPrototype {
                 entity_id: entity.id.clone(),
                 entity_type: etype.clone(),
+                current_tags: entity.tags.clone(),
             }
         }
     }
@@ -1293,6 +1294,13 @@ fn BatchTagEditor(batch_selected: Signal<HashSet<String>>, entity_version: Signa
                 }
             }
 
+            // Apply Prototype to batch
+            BatchApplyPrototype {
+                selected_ids: selected.iter().cloned().collect(),
+                entities: entities.to_vec(),
+                mixed_types,
+            }
+
             // Add tag to all
             div { class: "config-add-tag-section",
                 h4 { class: "config-section-title", "Add Tag to All" }
@@ -1559,13 +1567,20 @@ fn AddTagDropdown(
 }
 
 // ----------------------------------------------------------------
-// Apply Prototype
+// Apply Prototype (single entity, with PreviewModal dry-run)
 // ----------------------------------------------------------------
 
 #[component]
-fn ApplyPrototype(entity_id: String, entity_type: String) -> Element {
+fn ApplyPrototype(
+    entity_id: String,
+    entity_type: String,
+    current_tags: HashMap<String, Option<String>>,
+) -> Element {
     let state = use_context::<AppState>();
     let mut show_protos = use_signal(|| false);
+    // (proto_name, proto_tags) pending confirmation
+    let mut pending_proto: Signal<Option<(String, Vec<(String, Option<String>)>)>> =
+        use_signal(|| None);
 
     let prototypes = match entity_type.as_str() {
         "equip" => EQUIP_PROTOTYPES.iter().collect::<Vec<_>>(),
@@ -1576,6 +1591,42 @@ fn ApplyPrototype(entity_id: String, entity_type: String) -> Element {
     if prototypes.is_empty() {
         return rsx! {};
     }
+
+    // Build preview rows for the pending prototype
+    let preview_rows: Vec<PreviewRow> = if let Some((_, ptags)) = pending_proto.read().clone() {
+        ptags
+            .iter()
+            .map(|(tag_name, tag_value)| {
+                let before = current_tags
+                    .get(tag_name)
+                    .map(|v| v.clone().unwrap_or_else(|| "(marker)".to_string()))
+                    .unwrap_or_else(|| "—".to_string());
+                let after = tag_value
+                    .clone()
+                    .unwrap_or_else(|| "(marker)".to_string());
+                let change_kind = if current_tags.contains_key(tag_name) {
+                    ChangeKind::Modify
+                } else {
+                    ChangeKind::Add
+                };
+                PreviewRow {
+                    id: format!("{}/{}", entity_id, tag_name),
+                    label: tag_name.clone(),
+                    before,
+                    after,
+                    change_kind,
+                }
+            })
+            .collect()
+    } else {
+        vec![]
+    };
+
+    let proto_name_for_title = pending_proto
+        .read()
+        .as_ref()
+        .map(|(n, _)| n.clone())
+        .unwrap_or_default();
 
     rsx! {
         div { class: "config-prototype-section",
@@ -1597,25 +1648,230 @@ fn ApplyPrototype(entity_id: String, entity_type: String) -> Element {
                                 .iter()
                                 .map(|&(n, v)| (n.to_string(), v.map(|s| s.to_string())))
                                 .collect();
-                            let eid = entity_id.clone();
-                            let es = state.entity_store.clone();
 
                             rsx! {
                                 div {
                                     class: "config-proto-card",
                                     onclick: move |_| {
-                                        let store = es.clone();
-                                        let entity = eid.clone();
-                                        let tags = ptags.clone();
-                                        spawn(async move {
-                                            let _ = store.set_tags(&entity, tags).await;
-                                        });
+                                        // Show preview instead of applying immediately
+                                        pending_proto.set(Some((pname.to_string(), ptags.clone())));
                                         show_protos.set(false);
                                     },
                                     div { class: "config-proto-name", "{pname}" }
                                     div { class: "config-proto-doc", "{pdoc}" }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            // Dry-run preview modal
+            if pending_proto.read().is_some() {
+                {
+                    let eid = entity_id.clone();
+                    let es = state.entity_store.clone();
+                    let tags_to_apply = pending_proto
+                        .read()
+                        .as_ref()
+                        .map(|(_, t)| t.clone())
+                        .unwrap_or_default();
+                    rsx! {
+                        PreviewModal {
+                            title: format!("Apply Prototype: {proto_name_for_title}"),
+                            rows: preview_rows,
+                            on_confirm: move |_| {
+                                let store = es.clone();
+                                let entity = eid.clone();
+                                let tags = tags_to_apply.clone();
+                                spawn(async move {
+                                    let _ = store.set_tags(&entity, tags).await;
+                                });
+                                pending_proto.set(None);
+                            },
+                            on_cancel: move |_| pending_proto.set(None),
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------
+// Batch Apply Prototype
+// ----------------------------------------------------------------
+
+/// Prototype picker for batch mode. Grouped by entity type if mixed.
+#[component]
+fn BatchApplyPrototype(
+    selected_ids: Vec<String>,
+    entities: Vec<Entity>,
+    mixed_types: bool,
+) -> Element {
+    let state = use_context::<AppState>();
+    let mut show_protos = use_signal(|| false);
+    let mut pending_proto: Signal<Option<(String, Vec<(String, Option<String>)>)>> =
+        use_signal(|| None);
+
+    let equip_protos: Vec<_> = EQUIP_PROTOTYPES.iter().collect();
+    let point_protos: Vec<_> = POINT_PROTOTYPES.iter().collect();
+
+    let entity_count = selected_ids.len();
+
+    // Build preview rows: one row per (entity, tag) pair
+    let preview_rows: Vec<PreviewRow> =
+        if let Some((pname, ptags)) = pending_proto.read().clone() {
+            let mut rows = Vec::new();
+            for e in &entities {
+                for (tag_name, tag_value) in &ptags {
+                    let before = e
+                        .tags
+                        .get(tag_name)
+                        .map(|v| v.clone().unwrap_or_else(|| "(marker)".to_string()))
+                        .unwrap_or_else(|| "—".to_string());
+                    let after = tag_value
+                        .clone()
+                        .unwrap_or_else(|| "(marker)".to_string());
+                    let change_kind = if e.tags.contains_key(tag_name) {
+                        ChangeKind::Modify
+                    } else {
+                        ChangeKind::Add
+                    };
+                    rows.push(PreviewRow {
+                        id: format!("{}/{}", e.id, tag_name),
+                        label: format!(
+                            "{} / {}",
+                            if e.dis.is_empty() { &e.id } else { &e.dis },
+                            tag_name
+                        ),
+                        before,
+                        after,
+                        change_kind,
+                    });
+                }
+            }
+            // Include untagged selected IDs
+            for id in &selected_ids {
+                if !entities.iter().any(|e| &e.id == id) {
+                    for (tag_name, tag_value) in &ptags {
+                        rows.push(PreviewRow {
+                            id: format!("{}/{}", id, tag_name),
+                            label: format!("{} / {} (untagged)", id, tag_name),
+                            before: "—".to_string(),
+                            after: tag_value
+                                .clone()
+                                .unwrap_or_else(|| "(marker)".to_string()),
+                            change_kind: ChangeKind::Add,
+                        });
+                    }
+                }
+            }
+            let _ = pname;
+            rows
+        } else {
+            vec![]
+        };
+
+    let proto_title = pending_proto
+        .read()
+        .as_ref()
+        .map(|(n, _)| format!("Apply Prototype: {} to {} items", n, entity_count))
+        .unwrap_or_default();
+
+    rsx! {
+        div { class: "config-prototype-section",
+            h4 { class: "config-section-title", "Apply Prototype to All" }
+            button {
+                class: "config-btn",
+                onclick: move |_| show_protos.set(!show_protos()),
+                if *show_protos.read() { "Hide Prototypes" } else { "Apply Prototype..." }
+            }
+
+            if *show_protos.read() {
+                div { class: "config-proto-list",
+                    div { class: "config-proto-group-header", "Equipment Prototypes" }
+                    for proto in &equip_protos {
+                        {
+                            let pname = proto.name;
+                            let pdoc = proto.doc;
+                            let ptags: Vec<(String, Option<String>)> = proto
+                                .tags
+                                .iter()
+                                .map(|&(n, v)| (n.to_string(), v.map(|s| s.to_string())))
+                                .collect();
+
+                            rsx! {
+                                div {
+                                    class: "config-proto-card",
+                                    onclick: move |_| {
+                                        pending_proto.set(Some((pname.to_string(), ptags.clone())));
+                                        show_protos.set(false);
+                                    },
+                                    div { class: "config-proto-name", "{pname}" }
+                                    div { class: "config-proto-doc", "{pdoc}" }
+                                }
+                            }
+                        }
+                    }
+
+                    if mixed_types {
+                        hr {}
+                    }
+
+                    div { class: "config-proto-group-header", "Point Prototypes" }
+                    for proto in &point_protos {
+                        {
+                            let pname = proto.name;
+                            let pdoc = proto.doc;
+                            let ptags: Vec<(String, Option<String>)> = proto
+                                .tags
+                                .iter()
+                                .map(|&(n, v)| (n.to_string(), v.map(|s| s.to_string())))
+                                .collect();
+
+                            rsx! {
+                                div {
+                                    class: "config-proto-card",
+                                    onclick: move |_| {
+                                        pending_proto.set(Some((pname.to_string(), ptags.clone())));
+                                        show_protos.set(false);
+                                    },
+                                    div { class: "config-proto-name", "{pname}" }
+                                    div { class: "config-proto-doc", "{pdoc}" }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Dry-run preview modal
+            if pending_proto.read().is_some() {
+                {
+                    let es = state.entity_store.clone();
+                    let ids = selected_ids.clone();
+                    let tags_to_apply = pending_proto
+                        .read()
+                        .as_ref()
+                        .map(|(_, t)| t.clone())
+                        .unwrap_or_default();
+                    rsx! {
+                        PreviewModal {
+                            title: proto_title,
+                            rows: preview_rows,
+                            on_confirm: move |_| {
+                                let store = es.clone();
+                                let entity_ids = ids.clone();
+                                let tags = tags_to_apply.clone();
+                                spawn(async move {
+                                    for id in &entity_ids {
+                                        let _ = store.set_tags(id, tags.clone()).await;
+                                    }
+                                });
+                                pending_proto.set(None);
+                            },
+                            on_cancel: move |_| pending_proto.set(None),
                         }
                     }
                 }
