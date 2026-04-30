@@ -156,6 +156,7 @@ fn ProjectGate(paths: ProjectPaths, on_close: EventHandler<CloseAction>) -> Elem
     let has_platform = platform_data.read().is_some();
     let has_error = init_error.read().is_some();
 
+
     rsx! {
         document::Link { rel: "stylesheet", href: asset!("/assets/style.css") }
 
@@ -238,8 +239,17 @@ pub(crate) fn ProjectApp(
         })
     });
 
-    // Extract stores from pre-initialized platform (created by ProjectGate)
-    let plat = use_hook(|| platform_data.read().clone().unwrap());
+    // Extract stores from pre-initialized platform (created by ProjectGate).
+    // ProjectGate gates this branch on `has_platform`, but we use `expect` with
+    // a clear diagnostic so any race/order bug surfaces with context (the
+    // panic hook in main.rs writes a backtrace to ~/.bms-store-gui/last-panic.log).
+    let plat = use_hook(|| {
+        platform_data.read().clone().expect(
+            "ProjectApp mounted with platform_data=None — \
+             ProjectGate's has_platform check failed to gate properly. \
+             See ~/.bms-store-gui/last-panic.log for backtrace."
+        )
+    });
 
     let store = plat.point_store.clone();
     let node_store = plat.node_store.clone();
