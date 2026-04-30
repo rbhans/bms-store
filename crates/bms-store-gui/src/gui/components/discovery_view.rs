@@ -10,6 +10,7 @@ use bms_store_bridges::discovery::grouping::{
     canonical_point_set, find_related_groups, kind_signature, point_kind_fingerprint,
     point_set_to_json, suggest_group_name,
 };
+use bms_store_bridges::discovery::duplicates::{find_duplicates, DuplicateGroup, PointDescriptor};
 use bms_store_storage::discovery::model::{
     DeviceState, DiscoveredDevice, DiscoveredPoint, PointKindHint, PROTOCOL_BACNET, PROTOCOL_MODBUS,
 };
@@ -69,6 +70,16 @@ pub fn DiscoveryView() -> Element {
     let mut group_point_state_labels_drafts =
         use_signal(HashMap::<String, Option<HashMap<String, String>>>::new);
     let mut group_shared_points = use_signal(Vec::<DiscoveredPoint>::new);
+
+    // Compare modal state (deliverable 1)
+    let mut compare_modal_group_a: Signal<Option<u64>> = use_signal(|| None);
+    let mut compare_modal_group_b_name: Signal<Option<String>> = use_signal(|| None);
+
+    // Duplicate detection state (deliverable 2)
+    let mut show_dup_pane = use_signal(|| false);
+    let mut dup_groups: Signal<Vec<DuplicateGroup>> = use_signal(Vec::new);
+    let mut dup_ignored: Signal<std::collections::HashSet<String>> = use_signal(std::collections::HashSet::new);
+    let mut dup_marked: Signal<std::collections::HashSet<String>> = use_signal(std::collections::HashSet::new);
 
     // B4: Network selector for BACnet tab (None = All Networks)
     let mut bacnet_network_filter: Signal<Option<String>> = use_signal(|| None);
@@ -220,6 +231,46 @@ pub fn DiscoveryView() -> Element {
             } else {
                 selected_points.set(vec![]);
             }
+        }
+    });
+
+    // Lazy duplicate detection — runs only when the dup pane is opened
+    let ds_dup = state.discovery_store.clone();
+    let _ = use_resource(move || {
+        let ds = ds_dup.clone();
+        let _open = *show_dup_pane.read();
+        let _counter = *refresh_counter.read();
+        async move {
+            if !*show_dup_pane.read() {
+                return;
+            }
+            // Collect all points from all devices as PointDescriptors
+            let all_points = ds.get_all_device_points().await;
+            let all_devices_list = ds.list_devices(None).await;
+            let proto_map: HashMap<String, String> = all_devices_list
+                .iter()
+                .map(|d| (d.id.clone(), d.protocol.clone()))
+                .collect();
+            let descriptors: Vec<PointDescriptor> = all_points
+                .iter()
+                .flat_map(|(dev_id, pts)| {
+                    let protocol = proto_map.get(dev_id).cloned().unwrap_or_default();
+                    pts.iter().map(move |pt| PointDescriptor {
+                        device_key: dev_id.clone(),
+                        point_id: pt.id.clone(),
+                        display_name: pt.display_name.clone(),
+                        units: pt.units.clone().unwrap_or_default(),
+                        kind: match pt.point_kind {
+                            bms_store_storage::discovery::model::PointKindHint::Analog => "analog".to_string(),
+                            bms_store_storage::discovery::model::PointKindHint::Binary => "binary".to_string(),
+                            bms_store_storage::discovery::model::PointKindHint::Multistate => "multistate".to_string(),
+                        },
+                        protocol: protocol.clone(),
+                    })
+                })
+                .collect();
+            let groups = find_duplicates(&descriptors);
+            dup_groups.set(groups);
         }
     });
 
@@ -618,6 +669,39 @@ pub fn DiscoveryView() -> Element {
                     }
                 }
 
+                // ── Duplicate detection banner (deliverable 2) ──
+                {
+                    let dup_count = dup_groups.read().iter()
+                        .filter(|g| !dup_ignored.read().contains(&g.canonical_key))
+                        .count();
+                    if dup_count > 0 && !*show_dup_pane.read() {
+                        rsx! {
+                            div { class: "discovery-dup-banner",
+                                span { class: "discovery-dup-banner-icon", "\u{26A0}" }
+                                span { " {dup_count} duplicate point candidate(s) detected" }
+                                button {
+                                    class: "discovery-dup-review-btn",
+                                    onclick: move |_| show_dup_pane.set(true),
+                                    "Review"
+                                }
+                            }
+                        }
+                    } else if *show_dup_pane.read() {
+                        rsx! {
+                            div { class: "discovery-dup-banner discovery-dup-banner-open",
+                                span { "Duplicate Review" }
+                                button {
+                                    class: "discovery-dup-review-btn",
+                                    onclick: move |_| show_dup_pane.set(false),
+                                    "Close"
+                                }
+                            }
+                        }
+                    } else {
+                        rsx! {}
+                    }
+                }
+
                 // ── Device list ──
                 div { class: "discovery-device-list-body",
                     // On All tab with groups: show equipment groups first
@@ -705,11 +789,18 @@ pub fn DiscoveryView() -> Element {
                                                                         } else {
                                                                             String::new()
                                                                         };
+                                                                        let fp_a = fp;
                                                                         rsx! {
-                                                                            span {
-                                                                                class: "discovery-related-chip",
-                                                                                title: "{detail}",
-                                                                                "{rg_name} {pct}%"
+                                                                            button {
+                                                                                class: "discovery-related-chip discovery-related-chip-btn",
+                                                                                title: "Compare with {rg_name}: {detail}",
+                                                                                onclick: move |evt: Event<MouseData>| {
+                                                                                    evt.stop_propagation();
+                                                                                    compare_modal_group_a.set(Some(fp_a));
+                                                                                    compare_modal_group_b_name.set(Some(rg_name.clone()));
+                                                                                },
+                                                                                "{rg_name} {pct}% "
+                                                                                span { class: "discovery-related-chip-detail", "{detail}" }
                                                                             }
                                                                         }
                                                                     }
@@ -807,75 +898,264 @@ pub fn DiscoveryView() -> Element {
                 }
             }
 
-            // ── Right pane — device detail or group editor ──
+            // ── Right pane — device detail or group editor or dup pane ──
             div { class: "discovery-detail",
-                // Group editor (shown when a group is selected)
-                if let Some(sel_fp) = *selected_group.read() {
+
+                // Compare modal (deliverable 1) — overlays the right pane
+                if compare_modal_group_a.read().is_some() {
                     {
                         let groups = device_groups.read();
-                        if let Some(group) = groups.iter().find(|g| g.fingerprint == sel_fp) {
-                            rsx! {
-                                { render_group_editor(
-                                    &state,
-                                    group,
-                                    &all_devices,
-                                    selected_group,
-                                    group_name_drafts,
-                                    group_find_text,
-                                    group_replace_text,
-                                    group_template_text,
-                                    group_status,
-                                    group_point_name_drafts,
-                                    group_point_units_drafts,
-                                    group_point_state_labels_drafts,
-                                    group_shared_points,
-                                    refresh_counter,
-                                ) }
+                        let fp_a = compare_modal_group_a.read().unwrap();
+                        let b_name = compare_modal_group_b_name.read().clone().unwrap_or_default();
+                        if let Some(group_a) = groups.iter().find(|g| g.fingerprint == fp_a) {
+                            let group_b = groups.iter().find(|g| g.name == b_name);
+                            let rel = group_a.related.iter().find(|r| r.group_name == b_name);
+                            if let Some(rel) = rel {
+                                let shared_names: Vec<String> = rel.diff.shared.iter().map(|e| format!("{} ({})", e.0, e.1)).collect();
+                                let only_a_names: Vec<String> = rel.diff.only_a.iter().map(|e| format!("{} ({})", e.0, e.1)).collect();
+                                let only_b_names: Vec<String> = rel.diff.only_b.iter().map(|e| format!("{} ({})", e.0, e.1)).collect();
+                                let pct = (rel.diff.similarity * 100.0) as u32;
+                                let a_name = group_a.name.clone();
+                                rsx! {
+                                    div { class: "discovery-compare-modal-overlay",
+                                        onclick: move |_| { compare_modal_group_a.set(None); compare_modal_group_b_name.set(None); },
+                                        div { class: "discovery-compare-modal",
+                                            onclick: move |e| e.stop_propagation(),
+                                            div { class: "discovery-compare-modal-header",
+                                                h4 { "Compare Groups — {pct}% similar" }
+                                                button {
+                                                    class: "preview-modal-close",
+                                                    onclick: move |_| { compare_modal_group_a.set(None); compare_modal_group_b_name.set(None); },
+                                                    "x"
+                                                }
+                                            }
+                                            div { class: "discovery-compare-body",
+                                                div { class: "discovery-compare-col",
+                                                    h5 { class: "discovery-compare-col-title", "{a_name}" }
+                                                    if !shared_names.is_empty() {
+                                                        p { class: "discovery-compare-section-label", "Shared ({shared_names.len()})" }
+                                                        for n in shared_names.iter() {
+                                                            div { class: "discovery-compare-row shared", "{n}" }
+                                                        }
+                                                    }
+                                                    if !only_a_names.is_empty() {
+                                                        p { class: "discovery-compare-section-label compare-only-this", "Only in this group ({only_a_names.len()})" }
+                                                        for n in only_a_names.iter() {
+                                                            div { class: "discovery-compare-row only-a", "+ {n}" }
+                                                        }
+                                                    }
+                                                    if !only_b_names.is_empty() {
+                                                        p { class: "discovery-compare-section-label compare-missing", "Missing ({only_b_names.len()})" }
+                                                        for n in only_b_names.iter() {
+                                                            div { class: "discovery-compare-row only-b", "- {n}" }
+                                                        }
+                                                    }
+                                                }
+                                                div { class: "discovery-compare-col",
+                                                    h5 { class: "discovery-compare-col-title", "{b_name}" }
+                                                    if !shared_names.is_empty() {
+                                                        p { class: "discovery-compare-section-label", "Shared ({shared_names.len()})" }
+                                                        for n in shared_names.iter() {
+                                                            div { class: "discovery-compare-row shared", "{n}" }
+                                                        }
+                                                    }
+                                                    if !only_b_names.is_empty() {
+                                                        p { class: "discovery-compare-section-label compare-only-this", "Only in this group ({only_b_names.len()})" }
+                                                        for n in only_b_names.iter() {
+                                                            div { class: "discovery-compare-row only-b", "+ {n}" }
+                                                        }
+                                                    }
+                                                    if !only_a_names.is_empty() {
+                                                        p { class: "discovery-compare-section-label compare-missing", "Missing ({only_a_names.len()})" }
+                                                        for n in only_a_names.iter() {
+                                                            div { class: "discovery-compare-row only-a", "- {n}" }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                rsx! {}
                             }
                         } else {
-                            rsx! {
-                                div { class: "discovery-detail-empty",
-                                    p { "Group not found." }
+                            rsx! {}
+                        }
+                    }
+                }
+
+                // Duplicate review pane (deliverable 2)
+                if *show_dup_pane.read() {
+                    {
+                        let dups = dup_groups.read();
+                        let ignored = dup_ignored.read();
+                        let marked = dup_marked.read();
+                        let visible: Vec<&DuplicateGroup> = dups.iter()
+                            .filter(|g| !ignored.contains(&g.canonical_key))
+                            .collect();
+                        rsx! {
+                            div { class: "discovery-dup-pane",
+                                div { class: "discovery-dup-pane-header",
+                                    h3 { "Duplicate Point Review" }
+                                    p { class: "discovery-hint",
+                                        "Points with the same name detected across multiple protocols. "
+                                        "Mark as duplicate or ignore to suppress."
+                                    }
+                                }
+                                if visible.is_empty() {
+                                    div { class: "discovery-dup-empty",
+                                        if dups.is_empty() {
+                                            p { "No cross-protocol duplicates detected." }
+                                        } else {
+                                            p { "All duplicate candidates have been reviewed." }
+                                        }
+                                    }
+                                } else {
+                                    for grp in visible.iter() {
+                                        {
+                                            let key = grp.canonical_key.clone();
+                                            let key_mark = key.clone();
+                                            let key_ignore = key.clone();
+                                            let is_marked = marked.contains(&key);
+                                            let conf_class = match grp.confidence {
+                                                bms_store_bridges::discovery::duplicates::Confidence::High => "dup-conf-badge dup-high",
+                                                bms_store_bridges::discovery::duplicates::Confidence::Medium => "dup-conf-badge dup-medium",
+                                                bms_store_bridges::discovery::duplicates::Confidence::Low => "dup-conf-badge dup-low",
+                                            };
+                                            let conf_label = grp.confidence.label();
+                                            rsx! {
+                                                div {
+                                                    class: if is_marked { "discovery-dup-group marked" } else { "discovery-dup-group" },
+                                                    key: "{key}",
+                                                    div { class: "discovery-dup-group-header",
+                                                        span { class: "discovery-dup-key", "{key}" }
+                                                        span { class: "{conf_class}", "{conf_label}" }
+                                                    }
+                                                    table { class: "discovery-dup-table",
+                                                        thead {
+                                                            tr {
+                                                                th { "Protocol" }
+                                                                th { "Device" }
+                                                                th { "Point ID" }
+                                                                th { "Name" }
+                                                                th { "Kind" }
+                                                                th { "Units" }
+                                                            }
+                                                        }
+                                                        tbody {
+                                                            for member in grp.members.iter() {
+                                                                tr { key: "{member.device_key}/{member.point_id}",
+                                                                    td { class: "discovery-meta-chip", "{member.protocol}" }
+                                                                    td { class: "text-muted", "{member.device_key}" }
+                                                                    td { class: "text-muted", "{member.point_id}" }
+                                                                    td { "{member.display_name}" }
+                                                                    td { "{member.kind}" }
+                                                                    td { "{member.units}" }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    div { class: "discovery-dup-actions",
+                                                        button {
+                                                            class: if is_marked { "discovery-action-btn accept primary" } else { "discovery-action-btn" },
+                                                            onclick: move |_| {
+                                                                let mut set = dup_marked.write();
+                                                                if set.contains(&key_mark) {
+                                                                    set.remove(&key_mark);
+                                                                } else {
+                                                                    set.insert(key_mark.clone());
+                                                                }
+                                                            },
+                                                            if is_marked { "Unmark Duplicate" } else { "Mark as Duplicate" }
+                                                        }
+                                                        button {
+                                                            class: "discovery-action-btn ignore",
+                                                            onclick: move |_| {
+                                                                dup_ignored.write().insert(key_ignore.clone());
+                                                            },
+                                                            "Ignore"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
-                if selected_group.read().is_none() && selected_dev.is_some() {
-                    { render_device_detail(
-                        &state,
-                        selected_dev,
-                        &points,
-                        user_is_admin,
-                        detail_tab,
-                        refresh_counter,
-                        editing_device_name,
-                        device_name_draft,
-                        selected_point_ids,
-                        editing_point_id,
-                        point_name_draft,
-                        point_units_draft,
-                        point_desc_draft,
-                        point_state_labels_draft,
-                        point_kind_editing,
-                        bulk_units_draft,
-                        bulk_status,
-                        event_infos,
-                        trend_logs,
-                        create_object_type,
-                        delete_object_input,
-                        commission_status,
-                        modbus_profiles,
-                        selected_profile_idx,
-                        profile_apply_status,
-                        selected_points,
-                    ) }
-                } else {
-                    // No device selected in device detail mode — but only if no group is selected either
-                    if selected_group.read().is_none() {
-                        div { class: "discovery-detail-empty",
-                            p { "Select a device or group to view details." }
+                // Group editor (shown when a group is selected and dup pane is closed)
+                if !*show_dup_pane.read() {
+                    if let Some(sel_fp) = *selected_group.read() {
+                        {
+                            let groups = device_groups.read();
+                            if let Some(group) = groups.iter().find(|g| g.fingerprint == sel_fp) {
+                                rsx! {
+                                    { render_group_editor(
+                                        &state,
+                                        group,
+                                        &all_devices,
+                                        selected_group,
+                                        group_name_drafts,
+                                        group_find_text,
+                                        group_replace_text,
+                                        group_template_text,
+                                        group_status,
+                                        group_point_name_drafts,
+                                        group_point_units_drafts,
+                                        group_point_state_labels_drafts,
+                                        group_shared_points,
+                                        refresh_counter,
+                                    ) }
+                                }
+                            } else {
+                                rsx! {
+                                    div { class: "discovery-detail-empty",
+                                        p { "Group not found." }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if selected_group.read().is_none() && selected_dev.is_some() {
+                        { render_device_detail(
+                            &state,
+                            selected_dev,
+                            &points,
+                            user_is_admin,
+                            detail_tab,
+                            refresh_counter,
+                            editing_device_name,
+                            device_name_draft,
+                            selected_point_ids,
+                            editing_point_id,
+                            point_name_draft,
+                            point_units_draft,
+                            point_desc_draft,
+                            point_state_labels_draft,
+                            point_kind_editing,
+                            bulk_units_draft,
+                            bulk_status,
+                            event_infos,
+                            trend_logs,
+                            create_object_type,
+                            delete_object_input,
+                            commission_status,
+                            modbus_profiles,
+                            selected_profile_idx,
+                            profile_apply_status,
+                            selected_points,
+                        ) }
+                    } else {
+                        // No device selected in device detail mode — but only if no group is selected either
+                        if selected_group.read().is_none() {
+                            div { class: "discovery-detail-empty",
+                                p { "Select a device or group to view details." }
+                            }
                         }
                     }
                 }
