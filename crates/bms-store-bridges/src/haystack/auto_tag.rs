@@ -1,3 +1,28 @@
+//! # Auto-Tag — Redesign Required
+//!
+//! Current implementation uses keyword + unit heuristics ("dat" → temp, °F → temp, etc.).
+//! This is fundamentally limited:
+//! - Misses context (e.g., "rtuDat" doesn't catch "rtu" if it's not in the keyword table).
+//! - No semantic understanding of equipment-vs-point relationships.
+//! - Heuristic rules don't compose (a tag suggested by name pattern may conflict with one
+//!   suggested by units, with no resolution policy).
+//! - New keywords require source-code edits.
+//!
+//! A real solution should:
+//! 1. Use the Atlas naming hint engine (already wired in via bms_store_storage::atlas)
+//!    as the primary path. Atlas can be a curated knowledge base or external service.
+//! 2. Fall back to LLM-based semantic tagging for unfamiliar names — accept that this
+//!    has cost / latency / privacy implications, so it should be optional.
+//! 3. Treat current keyword heuristics as a third-tier fallback, not the primary engine.
+//! 4. Provide a confidence score per suggested tag so the GUI can show "high-confidence
+//!    auto-applied" vs "low-confidence suggestion needs review".
+//! 5. Make the rule set data-driven (TOML/JSON), not hard-coded, so naming conventions
+//!    can be customized per site.
+//!
+//! This is a significant subsystem — not a bandaid. Out of scope for the v0.3.0
+//! standardization-UX pass; should be tackled as its own plan when downstream consumer
+//! apps surface real auto-tag accuracy needs.
+
 use std::collections::HashMap;
 
 use crate::haystack::provider::TagProvider;
