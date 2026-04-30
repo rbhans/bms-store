@@ -27,22 +27,6 @@ pub enum Event {
         node_id: String,
         flags: u8,
     },
-    AlarmRaised {
-        alarm_id: i64,
-        node_id: String,
-    },
-    AlarmCleared {
-        alarm_id: i64,
-        node_id: String,
-    },
-    AlarmAcknowledged {
-        alarm_id: i64,
-    },
-    ScheduleWritten {
-        assignment_id: i64,
-        node_id: String,
-        value: PointValue,
-    },
     EntityCreated {
         entity_id: String,
     },
@@ -104,10 +88,6 @@ impl Event {
         match self {
             Event::ValueChanged { .. } => "ValueChanged",
             Event::StatusChanged { .. } => "StatusChanged",
-            Event::AlarmRaised { .. } => "AlarmRaised",
-            Event::AlarmCleared { .. } => "AlarmCleared",
-            Event::AlarmAcknowledged { .. } => "AlarmAcknowledged",
-            Event::ScheduleWritten { .. } => "ScheduleWritten",
             Event::EntityCreated { .. } => "EntityCreated",
             Event::EntityUpdated { .. } => "EntityUpdated",
             Event::EntityDeleted { .. } => "EntityDeleted",
