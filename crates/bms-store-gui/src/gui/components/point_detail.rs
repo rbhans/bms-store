@@ -4,8 +4,6 @@ use bms_store_storage::auth::Permission;
 use bms_store_storage::config::profile::PointAccess;
 use crate::gui::state::AppState;
 
-use super::alarm_view::PointAlarmSection;
-use super::trend_chart::navigate_to_trend;
 use super::write_dialog::WriteDialog;
 
 #[component]
@@ -39,9 +37,6 @@ pub fn PointDetail() -> Element {
     let is_writable = profile_point
         .map(|p| !matches!(p.access, PointAccess::Input))
         .unwrap_or(false);
-
-    // All points have history unless explicitly excluded
-    let is_trended = profile_point.map(|p| !p.history_exclude).unwrap_or(true);
 
     rsx! {
         div { class: "point-detail-body",
@@ -121,29 +116,6 @@ pub fn PointDetail() -> Element {
                 }
             }
 
-            PointAlarmSection {
-                device_id: device_id.clone(),
-                point_id: point_id.clone(),
-            }
-
-            if is_trended {
-                {
-                    let mut trend_state = use_context::<AppState>();
-                    let dev = device_id.clone();
-                    let pt = point_id.clone();
-                    rsx! {
-                        div { class: "trend-action",
-                            button {
-                                class: "trend-btn",
-                                onclick: move |_| {
-                                    navigate_to_trend(&mut trend_state, &dev, &pt);
-                                },
-                                "Trend"
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }

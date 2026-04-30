@@ -15,7 +15,6 @@ use bms_store_storage::store::audit_store::start_audit_store_with_path;
 use bms_store_storage::store::point_store::{PointKey, PointStatusFlags};
 use bms_store_storage::store::user_store::{start_user_store_with_path, User, UserStore};
 
-use super::components::alarm_view::AlarmView;
 use super::components::building_tree::LocationBreadcrumb;
 use super::components::config_view::ConfigView;
 use super::components::login::{AdminSetup, LoginScreen};
@@ -23,18 +22,13 @@ use super::components::point_detail::PointDetail;
 use super::components::point_table::PointTable;
 use super::components::project_launcher::ProjectLauncher;
 use super::components::relationships_section::RelationshipsSection;
-use super::components::schedule_view::ScheduleView;
 use super::components::sidebar::Sidebar;
 use super::components::toolbar::Toolbar;
-use super::components::trend_chart::TrendView;
-use super::components::weather_view::WeatherView;
 use super::state::{
-    ActiveView, AppState, CloseAction, DashboardTool,
+    ActiveView, AppState, CloseAction,
     LaunchSelection, SidebarTab, WriteCommand,
 };
 use super::theme::{apply_theme_css, load_theme_config, save_theme_config};
-use bms_store_storage::weather::config::WeatherConfig;
-use bms_store_storage::weather::service::WeatherService;
 
 /// Top-level app phase. Currently single-project only; the enum shape is
 /// kept so a future Multi-site variant can be added without re-architecting.
@@ -256,20 +250,16 @@ pub(crate) fn ProjectApp(
     let event_bus = plat.event_bus.clone();
     let loaded = plat.loaded.clone();
     let history_store = plat.history_store.clone();
+    // alarm_store kept for PointStatusFlags::ALARM sync only (not exposed via GUI)
     let alarm_store = plat.alarm_store.clone();
-    let schedule_store = plat.schedule_store.clone();
     let entity_store = plat.entity_store.clone();
     let discovery_store = plat.discovery_store.clone();
     let discovery_service = plat.discovery_service.clone();
     let bridge_registry = plat.bridge_registry.clone();
     let program_store = plat.program_store.clone();
-    let notification_store = plat.notification_store.clone();
     let mqtt_store = plat.mqtt_store.clone();
     let commissioning_store = plat.commissioning_store.clone();
-    let report_store = plat.report_store.clone();
-    let energy_store = plat.energy_store.clone();
     let webhook_store = plat.webhook_store.clone();
-    let fdd_store = plat.fdd_store.clone();
     let export_store = plat.export_store.clone();
 
     // Per-site shutdown token — lifecycle matches the *site*, not this component.
@@ -344,47 +334,11 @@ pub(crate) fn ProjectApp(
             .map(|s| s.next_node_id)
             .unwrap_or(1u32)
     });
-    let dashboards = use_signal(Vec::new);
-    let active_dashboard_id = use_signal(|| Option::<String>::None);
-    let selected_widget = use_signal(|| Option::<String>::None);
-    let dashboard_tool = use_signal(|| DashboardTool::Select);
-    let next_widget_id = use_signal(|| 1u32);
-    let drag_op = use_signal(|| Option::<crate::gui::state::DragOp>::None);
-    let quick_trend_device = use_signal(|| Option::<String>::None);
-    let quick_trend_point = use_signal(|| Option::<String>::None);
-    let quick_trend_range = use_signal(|| crate::gui::state::TrendRange::Hour1);
-
     let audit_store = use_hook(|| start_audit_store_with_path(&project_paths.db_path("audit.db")));
 
-    let weather_config = use_hook(|| WeatherConfig::load(&project_paths.data_dir));
-    let weather_service = use_hook(|| Arc::new(WeatherService::new(weather_config)));
-    let weather_data = use_signal(|| Option::<bms_store_storage::weather::model::WeatherData>::None);
     let theme_config = use_signal(|| load_theme_config(&project_paths));
     let pending_config_section = use_signal(|| Option::<String>::None);
     let sidebar_visible = use_signal(|| true);
-
-    // Start weather refresh loop
-    {
-        let svc = weather_service.clone();
-        let token = shutdown_token.clone();
-        let mut wd = weather_data;
-        use_hook(move || {
-            let svc2 = svc.clone();
-            svc.start_refresh_loop(token);
-            // Watch for updates
-            spawn(async move {
-                let mut rx = svc2.subscribe();
-                loop {
-                    if rx.changed().await.is_err() {
-                        break;
-                    }
-                    if let Some(data) = svc2.latest().await {
-                        wd.set(Some(data));
-                    }
-                }
-            });
-        });
-    }
 
     // Build a SiteContext bundling all per-site handles.
     let site_ctx = use_hook(|| crate::gui::site_context::SiteContext {
@@ -397,8 +351,6 @@ pub(crate) fn ProjectApp(
         user_store: user_store.clone(),
         current_user,
         role_permissions,
-        weather_service: weather_service.clone(),
-        weather_data,
         theme_config,
         store_version,
         node_version,
@@ -425,37 +377,20 @@ pub(crate) fn ProjectApp(
         write_error,
         next_node_id,
         history_store: history_store.clone(),
-        dashboards,
-        active_dashboard_id,
-        selected_widget,
-        dashboard_tool,
-        next_widget_id,
-        drag_op,
-        quick_trend_device,
-        quick_trend_point,
-        quick_trend_range,
-        alarm_store: alarm_store.clone(),
-        schedule_store: schedule_store.clone(),
         entity_store: entity_store.clone(),
         discovery_store: discovery_store.clone(),
         discovery_service: discovery_service.clone(),
         bridge_registry: bridge_registry.clone(),
         program_store: program_store.clone(),
-        notification_store: notification_store.clone(),
         mqtt_store: mqtt_store.clone(),
         commissioning_store: commissioning_store.clone(),
-        report_store: report_store.clone(),
-        energy_store: energy_store.clone(),
         webhook_store: webhook_store.clone(),
-        fdd_store: fdd_store.clone(),
         export_store: export_store.clone(),
         health: plat.health.clone(),
         current_user,
         user_store: user_store.clone(),
         role_permissions,
         audit_store: audit_store.clone(),
-        weather_service: weather_service.clone(),
-        weather_data,
         theme_config,
         pending_config_section,
         sidebar_visible,
@@ -717,11 +652,7 @@ pub(crate) fn ProjectApp(
 
     let current_view = active_view.read().clone();
     let show_detail = *detail_open.read();
-    let is_history = matches!(current_view, ActiveView::History);
-    let is_alarms = matches!(current_view, ActiveView::Alarms);
-    let is_schedules = matches!(current_view, ActiveView::Schedules);
     let is_config = matches!(current_view, ActiveView::Config);
-    let is_weather = matches!(current_view, ActiveView::Weather);
 
     rsx! {
         div { class: "app-shell",
@@ -732,21 +663,9 @@ pub(crate) fn ProjectApp(
             }
 
             div { class: "app-body",
-                if is_history {
-                    // History view has its own 3-pane layout
-                    TrendView {}
-                } else if is_alarms {
-                    // Alarm view has its own 3-pane layout
-                    AlarmView {}
-                } else if is_schedules {
-                    // Schedule view has its own 3-pane layout
-                    ScheduleView {}
-                } else if is_config {
+                if is_config {
                     // Config view has its own 3-pane layout
                     ConfigView {}
-                } else if is_weather {
-                    // Weather view is full-pane
-                    WeatherView {}
                 } else {
                     if *app_state.sidebar_visible.read() {
                         Sidebar {}
@@ -755,13 +674,9 @@ pub(crate) fn ProjectApp(
                     div { class: "main-content",
                         match &current_view {
                             ActiveView::Home => rsx! { HomeView {} },
-                            ActiveView::Alarms => rsx! { },
-                            ActiveView::Schedules => rsx! { },
-                            ActiveView::History => rsx! { },
                             ActiveView::Page(_) => rsx! { HomeView {} },
                             ActiveView::Device { .. } => rsx! { HomeView {} },
                             ActiveView::Config => rsx! { },
-                            ActiveView::Weather => rsx! { },
                         }
                     }
 

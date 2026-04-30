@@ -13,7 +13,6 @@ use bms_core::event::EventBus;
 use bms_store_storage::logic::store::ProgramStore;
 use bms_store_bridges::plugin::{BridgeRegistry, ProtocolBridgeHandle};
 use bms_store_storage::project::{ProjectMeta, ProjectPaths};
-use bms_store_storage::store::alarm_store::AlarmStore;
 use bms_store_storage::store::audit_store::{AuditEntryBuilder, AuditStore};
 use bms_store_storage::store::commissioning_store::CommissioningStore;
 use bms_store_storage::store::discovery_store::DiscoveryStore;
@@ -21,13 +20,9 @@ use bms_store_storage::store::entity_store::EntityStore;
 use bms_store_storage::store::history_store::HistoryStore;
 use bms_store_storage::store::mqtt_store::MqttStore;
 use bms_store_storage::store::node_store::NodeStore;
-use bms_store_storage::store::notification_store::NotificationStore;
 use bms_store_storage::store::point_store::PointStore;
-use bms_store_storage::store::schedule_store::ScheduleStore;
 use bms_store_storage::store::user_store::{User, UserStore};
 use bms_store_storage::store::webhook_store::WebhookStore;
-use bms_store_storage::weather::model::WeatherData;
-use bms_store_storage::weather::service::WeatherService;
 
 
 #[derive(Debug, Clone)]
@@ -130,9 +125,6 @@ impl EquipSymbol {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ActiveView {
     Home,
-    Alarms,
-    Schedules,
-    History,
     Config,
     /// A graphic page canvas, keyed by node id.
     Page(String),
@@ -141,163 +133,8 @@ pub enum ActiveView {
         node_id: String,
         device_id: String,
     },
-    /// Weather view — current conditions, hourly/daily forecast.
-    Weather,
 }
 
-// ----------------------------------------------------------------
-// Trend dashboard data model
-// ----------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TrendRange {
-    Hour1,
-    Hour4,
-    Hour24,
-    Day7,
-    Day30,
-}
-
-impl TrendRange {
-    pub fn millis(&self) -> i64 {
-        match self {
-            TrendRange::Hour1 => 3_600_000,
-            TrendRange::Hour4 => 14_400_000,
-            TrendRange::Hour24 => 86_400_000,
-            TrendRange::Day7 => 604_800_000,
-            TrendRange::Day30 => 2_592_000_000,
-        }
-    }
-
-    pub fn label(&self) -> &'static str {
-        match self {
-            TrendRange::Hour1 => "1h",
-            TrendRange::Hour4 => "4h",
-            TrendRange::Hour24 => "24h",
-            TrendRange::Day7 => "7d",
-            TrendRange::Day30 => "30d",
-        }
-    }
-
-    pub fn all() -> &'static [TrendRange] {
-        &[
-            TrendRange::Hour1,
-            TrendRange::Hour4,
-            TrendRange::Hour24,
-            TrendRange::Day7,
-            TrendRange::Day30,
-        ]
-    }
-}
-
-/// A data source for a dashboard widget — one device/point pair.
-#[derive(Debug, Clone, PartialEq)]
-pub struct WidgetSource {
-    pub device_id: String,
-    pub point_id: String,
-    pub label: String,
-    pub color: String,
-}
-
-/// What kind of visualization a widget renders.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum WidgetKind {
-    Chart,
-    Gauge,
-    Table,
-    Value,
-}
-
-impl WidgetKind {
-    pub fn all() -> &'static [WidgetKind] {
-        &[Self::Chart, Self::Gauge, Self::Table, Self::Value]
-    }
-
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::Chart => "Chart",
-            Self::Gauge => "Gauge",
-            Self::Table => "Table",
-            Self::Value => "Value",
-        }
-    }
-
-    pub fn icon_path(&self) -> &'static str {
-        match self {
-            // Trend line
-            Self::Chart => "M3.5 18.5l6-6 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z",
-            // Speed gauge
-            Self::Gauge => "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z",
-            // Table grid
-            Self::Table => "M3 3v18h18V3H3zm8 16H5v-6h6v6zm0-8H5V5h6v6zm8 8h-6v-6h6v6zm0-8h-6V5h6v6z",
-            // Single number
-            Self::Value => "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H7v-2h5v2zm5-4H7v-2h10v2zm0-4H7V7h10v2z",
-        }
-    }
-}
-
-/// A widget placed on a dashboard canvas (absolute pixel positioning).
-#[derive(Debug, Clone, PartialEq)]
-pub struct DashboardWidget {
-    pub id: String,
-    pub kind: WidgetKind,
-    /// X position in pixels.
-    pub x: f64,
-    /// Y position in pixels.
-    pub y: f64,
-    /// Width in pixels.
-    pub w: f64,
-    /// Height in pixels.
-    pub h: f64,
-    /// Data sources (multiple device/point pairs).
-    pub sources: Vec<WidgetSource>,
-    /// Time range for chart widgets.
-    pub range: TrendRange,
-}
-
-/// A saved trend dashboard.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TrendDashboard {
-    pub id: String,
-    pub name: String,
-    pub widgets: Vec<DashboardWidget>,
-}
-
-/// Grid snap size in pixels for dashboard widget positioning.
-pub const GRID_SNAP: f64 = 20.0;
-
-/// Snap a value to the nearest grid unit.
-pub fn snap(val: f64) -> f64 {
-    (val / GRID_SNAP).round() * GRID_SNAP
-}
-
-/// Active drag operation on a widget (all coordinates in page space).
-#[derive(Debug, Clone, PartialEq)]
-pub enum DragOp {
-    /// Moving the widget — stores page coords at drag start + original widget position.
-    Move {
-        widget_id: String,
-        start_page_x: f64,
-        start_page_y: f64,
-        orig_x: f64,
-        orig_y: f64,
-    },
-    /// Resizing from bottom-right corner — stores page coords at drag start + original size.
-    Resize {
-        widget_id: String,
-        start_page_x: f64,
-        start_page_y: f64,
-        orig_w: f64,
-        orig_h: f64,
-    },
-}
-
-/// What tool is active on the dashboard canvas.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum DashboardTool {
-    Select,
-    AddWidget(WidgetKind),
-}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SidebarTab {
@@ -395,28 +232,8 @@ pub struct AppState {
     pub write_error: Signal<Option<String>>,
     /// Counter for generating unique node IDs.
     pub next_node_id: Signal<u32>,
-    /// History query handle.
+    /// History query handle (kept for downstream consumer access).
     pub history_store: HistoryStore,
-    /// Saved dashboards.
-    pub dashboards: Signal<Vec<TrendDashboard>>,
-    /// ID of the currently active dashboard (None = no dashboard open).
-    pub active_dashboard_id: Signal<Option<String>>,
-    /// Currently selected widget ID on the dashboard.
-    pub selected_widget: Signal<Option<String>>,
-    /// Active dashboard tool.
-    pub dashboard_tool: Signal<DashboardTool>,
-    /// Counter for widget IDs.
-    pub next_widget_id: Signal<u32>,
-    /// Active drag operation.
-    pub drag_op: Signal<Option<DragOp>>,
-    /// Quick-trend: device + point shown inline on default history page.
-    pub quick_trend_device: Signal<Option<String>>,
-    pub quick_trend_point: Signal<Option<String>>,
-    pub quick_trend_range: Signal<TrendRange>,
-    /// Alarm system handle.
-    pub alarm_store: AlarmStore,
-    /// Schedule system handle.
-    pub schedule_store: ScheduleStore,
     /// Entity store for Haystack semantic tagging.
     pub entity_store: EntityStore,
     /// Discovery store for device/point discovery.
@@ -427,20 +244,12 @@ pub struct AppState {
     pub bridge_registry: Arc<BridgeRegistry>,
     /// Program store for logic engine.
     pub program_store: ProgramStore,
-    /// Notification store for alarm routing recipients, rules, shelving, and log.
-    pub notification_store: NotificationStore,
     /// MQTT config store for broker connections and topic patterns.
     pub mqtt_store: MqttStore,
     /// Commissioning store for device verification checklists.
     pub commissioning_store: CommissioningStore,
-    /// Report store for scheduled report definitions and executions.
-    pub report_store: bms_store_storage::store::report_store::ReportStore,
-    /// Energy analytics store for meters, rates, baselines, and rollups.
-    pub energy_store: bms_store_storage::store::energy_store::EnergyStore,
     /// Webhook subscription store for endpoint configs and delivery log.
     pub webhook_store: WebhookStore,
-    /// FDD store for fault detection rules, bindings, and active faults.
-    pub fdd_store: bms_store_storage::store::fdd_store::FddStore,
     /// Export store for database export connector configuration.
     pub export_store: bms_store_storage::store::export_store::ExportStore,
     /// Platform health registry — shared across all subsystems.
@@ -453,10 +262,6 @@ pub struct AppState {
     pub role_permissions: Signal<AllRolePermissions>,
     /// Audit trail store for logging user actions.
     pub audit_store: AuditStore,
-    /// Weather service for outdoor conditions and forecast.
-    pub weather_service: Arc<WeatherService>,
-    /// Cached weather data (updated via watch channel).
-    pub weather_data: Signal<Option<WeatherData>>,
     /// Theme configuration (colors, mode, custom logo).
     pub theme_config: Signal<ThemeConfig>,
     /// Requested config sub-tab (consumed by ConfigView on render).
@@ -486,22 +291,7 @@ impl AppState {
     pub fn view_title(&self) -> String {
         match &*self.active_view.read() {
             ActiveView::Home => "Home".into(),
-            ActiveView::Alarms => "Alarms".into(),
-            ActiveView::Schedules => "Schedules".into(),
             ActiveView::Config => "Configuration".into(),
-            ActiveView::History => {
-                if let Some(ref dash_id) = *self.active_dashboard_id.read() {
-                    self.dashboards
-                        .read()
-                        .iter()
-                        .find(|d| d.id == *dash_id)
-                        .map(|d| d.name.clone())
-                        .unwrap_or_else(|| "History".into())
-                } else {
-                    "History".into()
-                }
-            }
-            ActiveView::Weather => "Weather".into(),
             ActiveView::Page(id) | ActiveView::Device { node_id: id, .. } => {
                 find_node_label(&self.nav_tree.read(), id).unwrap_or_else(|| "Untitled".into())
             }

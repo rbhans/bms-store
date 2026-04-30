@@ -10,7 +10,6 @@ use bms_store_storage::store::entity_store::Entity;
 use bms_store_storage::auth::Permission;
 use bms_store_storage::store::node_store::NodeRecord;
 
-use super::alarm_routing_view::AlarmRoutingView;
 use super::audit_log_view::AuditLogView;
 use super::discovery_view::DiscoveryView;
 use super::programming_view::ProgrammingView;
@@ -31,16 +30,12 @@ pub enum ConfigSection {
     VirtualPoints,
     Plugins,
     Appearance,
-    AlarmRouting,
     Mqtt,
     Webhooks,
     Commissioning,
     WebServer,
     Users,
     AuditLog,
-    Reports,
-    Energy,
-    Fdd,
     DataExport,
     Atlas,
 }
@@ -54,13 +49,9 @@ impl ConfigSection {
             Self::VirtualPoints => "Virtual Points",
             Self::Plugins => "Plugins",
             Self::Appearance => "Appearance",
-            Self::AlarmRouting => "Alarm Routing",
             Self::Mqtt => "MQTT",
             Self::Webhooks => "Webhooks",
             Self::Commissioning => "Commissioning",
-            Self::Reports => "Reports",
-            Self::Energy => "Energy",
-            Self::Fdd => "FDD",
             Self::DataExport => "Data Export",
             Self::WebServer => "Web Server",
             Self::Users => "Users",
@@ -70,16 +61,11 @@ impl ConfigSection {
     }
 
     /// Returns sections visible to the current user.
-    #[allow(clippy::too_many_arguments)]
     pub fn visible_sections(
         can_manage_users: bool,
-        can_manage_notifications: bool,
         can_manage_mqtt: bool,
         can_manage_webhooks: bool,
         can_manage_commissioning: bool,
-        can_manage_reports: bool,
-        can_manage_energy: bool,
-        can_manage_fdd: bool,
         can_manage_export: bool,
         can_view_audit: bool,
     ) -> Vec<ConfigSection> {
@@ -91,9 +77,6 @@ impl ConfigSection {
             Self::Plugins,
             Self::Appearance,
         ];
-        if can_manage_notifications {
-            sections.push(Self::AlarmRouting);
-        }
         if can_manage_mqtt {
             sections.push(Self::Mqtt);
         }
@@ -102,15 +85,6 @@ impl ConfigSection {
         }
         if can_manage_commissioning {
             sections.push(Self::Commissioning);
-        }
-        if can_manage_reports {
-            sections.push(Self::Reports);
-        }
-        if can_manage_energy {
-            sections.push(Self::Energy);
-        }
-        if can_manage_fdd {
-            sections.push(Self::Fdd);
         }
         if can_manage_export {
             sections.push(Self::DataExport);
@@ -135,24 +109,16 @@ impl ConfigSection {
 pub fn ConfigView() -> Element {
     let mut state = use_context::<AppState>();
     let can_manage_users = state.has_permission(Permission::ManageUsers);
-    let can_manage_notifications = state.has_permission(Permission::ManageNotifications);
     let can_manage_mqtt = state.has_permission(Permission::ManageMqtt);
     let can_manage_webhooks = state.has_permission(Permission::ManageWebhooks);
     let can_manage_commissioning = state.has_permission(Permission::ManageCommissioning);
-    let can_manage_reports = state.has_permission(Permission::ManageReports);
-    let can_manage_energy = state.has_permission(Permission::ManageEnergy);
-    let can_manage_fdd = state.has_permission(Permission::ManageFdd);
     let can_manage_export = state.has_permission(Permission::ManageExport);
     let can_view_audit = state.has_permission(Permission::ViewAudit);
     let all_sections = ConfigSection::visible_sections(
         can_manage_users,
-        can_manage_notifications,
         can_manage_mqtt,
         can_manage_webhooks,
         can_manage_commissioning,
-        can_manage_reports,
-        can_manage_energy,
-        can_manage_fdd,
         can_manage_export,
         can_view_audit,
     );
@@ -232,13 +198,9 @@ pub fn ConfigView() -> Element {
                     ConfigSection::Plugins => rsx! { super::plugin_manager::PluginManagerView {} },
                     ConfigSection::Users => rsx! { UserManagementView {} },
                     ConfigSection::Appearance => rsx! { ThemeSettingsView {} },
-                    ConfigSection::AlarmRouting => rsx! { AlarmRoutingView {} },
                     ConfigSection::Mqtt => rsx! { super::mqtt_settings::MqttSettingsView {} },
                     ConfigSection::Webhooks => rsx! { super::webhook_settings::WebhookSettingsView {} },
                     ConfigSection::Commissioning => rsx! { super::commissioning_overview::CommissioningOverview {} },
-                    ConfigSection::Reports => rsx! { super::report_view::ReportView {} },
-                    ConfigSection::Energy => rsx! { super::energy_view::EnergyView {} },
-                    ConfigSection::Fdd => rsx! { super::fdd_view::FddView {} },
                     ConfigSection::DataExport => rsx! { super::export_settings::ExportSettingsView {} },
                     ConfigSection::WebServer => rsx! { WebServerSettingsView {} },
                     ConfigSection::AuditLog => rsx! { AuditLogView {} },

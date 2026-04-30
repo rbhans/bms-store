@@ -4,8 +4,6 @@
 //! In single-site mode this wraps the one open project. In multi-site supervisor
 //! mode the `SupervisorState` holds one of these per loaded project.
 
-use std::sync::Arc;
-
 use dioxus::prelude::*;
 use tokio_util::sync::CancellationToken;
 
@@ -14,8 +12,6 @@ use crate::platform::{BridgeStartReport, SharedPlatform};
 use bms_store_storage::project::{ProjectMeta, ProjectPaths};
 use bms_store_storage::store::audit_store::AuditStore;
 use bms_store_storage::store::user_store::{User, UserStore};
-use bms_store_storage::weather::model::WeatherData;
-use bms_store_storage::weather::service::WeatherService;
 
 use super::theme::ThemeConfig;
 
@@ -41,8 +37,6 @@ pub struct SiteContext {
     pub user_store: UserStore,
     pub current_user: Signal<Option<User>>,
     pub role_permissions: Signal<AllRolePermissions>,
-    pub weather_service: Arc<WeatherService>,
-    pub weather_data: Signal<Option<WeatherData>>,
     pub theme_config: Signal<ThemeConfig>,
 
     // -- Reactive store version watchers (driven by background tasks) --
