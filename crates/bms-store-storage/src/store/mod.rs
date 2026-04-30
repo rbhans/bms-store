@@ -6,6 +6,7 @@ pub mod export_store;
 pub mod history_store;
 pub mod migration;
 pub mod mqtt_store;
+pub mod naming_rule_store;
 pub mod node_store;
 pub mod override_store;
 pub mod point_store;

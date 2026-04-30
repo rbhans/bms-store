@@ -14,6 +14,7 @@ use crate::mqtt::publisher::MqttPublisher;
 use crate::project::{load_project_meta, ProjectPaths};
 use crate::store::audit_store::{start_audit_store_with_path, AuditStore};
 use crate::store::commissioning_store::{start_commissioning_store_with_path, CommissioningStore};
+use crate::store::naming_rule_store::{start_naming_rule_store_with_path, NamingRuleStore};
 use crate::store::discovery_store::{
     start_conn_status_listener, start_discovery_store_with_path, DiscoveryStore,
 };
@@ -49,6 +50,7 @@ pub struct StorageRuntime {
     pub webhook_store: WebhookStore,
     pub export_store: ExportStore,
     pub audit_store: AuditStore,
+    pub naming_rule_store: NamingRuleStore,
     pub override_store: OverrideStore,
     pub user_store: UserStore,
     pub event_journal: Option<EventJournal>,
@@ -130,6 +132,7 @@ pub async fn boot_project_with_shutdown(
     let webhook_store = start_webhook_store_with_path(&paths.db_path("webhooks.db"));
     let export_store = start_export_store_with_path(&paths.db_path("export.db"));
     let audit_store = start_audit_store_with_path(&paths.db_path("audit.db"));
+    let naming_rule_store = start_naming_rule_store_with_path(&paths.db_path("naming_rules.db"));
     let override_store = start_override_store_with_path(&paths.db_path("overrides.db"));
     let user_store = start_user_store_with_path(&paths.db_path("users.db"));
 
@@ -174,6 +177,7 @@ pub async fn boot_project_with_shutdown(
         webhook_store,
         export_store,
         audit_store,
+        naming_rule_store,
         override_store,
         user_store,
         event_journal,

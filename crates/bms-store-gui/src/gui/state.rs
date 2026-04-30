@@ -22,6 +22,7 @@ use bms_store_storage::store::mqtt_store::MqttStore;
 use bms_store_storage::store::node_store::NodeStore;
 use bms_store_storage::store::point_store::PointStore;
 use bms_store_storage::store::user_store::{User, UserStore};
+use bms_store_storage::store::naming_rule_store::NamingRuleStore;
 use bms_store_storage::store::webhook_store::WebhookStore;
 
 
@@ -262,6 +263,8 @@ pub struct AppState {
     pub role_permissions: Signal<AllRolePermissions>,
     /// Audit trail store for logging user actions.
     pub audit_store: AuditStore,
+    /// Saved naming rules store.
+    pub naming_rule_store: NamingRuleStore,
     /// Theme configuration (colors, mode, custom logo).
     pub theme_config: Signal<ThemeConfig>,
     /// Requested config sub-tab (consumed by ConfigView on render).

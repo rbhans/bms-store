@@ -9,6 +9,7 @@ use bms_store_storage::logic::store::ProgramStore;
 use bms_store_storage::project::ProjectPaths;
 use bms_store_storage::store::audit_store::AuditStore;
 use bms_store_storage::store::commissioning_store::CommissioningStore;
+use bms_store_storage::store::naming_rule_store::NamingRuleStore;
 use bms_store_storage::store::discovery_store::DiscoveryStore;
 use bms_store_storage::store::entity_store::EntityStore;
 use bms_store_storage::store::export_store::ExportStore;
@@ -44,6 +45,7 @@ pub struct SharedPlatform {
     pub override_store: OverrideStore,
     pub user_store: UserStore,
     pub audit_store: AuditStore,
+    pub naming_rule_store: NamingRuleStore,
     pub shutdown: CancellationToken,
     pub discovery_service: Arc<DiscoveryService>,
     pub bridge_registry: Arc<BridgeRegistry>,
@@ -109,6 +111,7 @@ pub async fn init_platform(
         override_store: storage.override_store,
         user_store: storage.user_store,
         audit_store: storage.audit_store,
+        naming_rule_store: storage.naming_rule_store,
         shutdown: storage.shutdown,
 
         // Bridge layer fields.

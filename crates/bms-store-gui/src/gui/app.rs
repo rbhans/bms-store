@@ -258,6 +258,7 @@ pub(crate) fn ProjectApp(
     let commissioning_store = plat.commissioning_store.clone();
     let webhook_store = plat.webhook_store.clone();
     let export_store = plat.export_store.clone();
+    let naming_rule_store = plat.naming_rule_store.clone();
 
     // Per-site shutdown token — lifecycle matches the *site*, not this component.
     // Tasks bound to this token are things that should live as long as the site
@@ -388,6 +389,7 @@ pub(crate) fn ProjectApp(
         user_store: user_store.clone(),
         role_permissions,
         audit_store: audit_store.clone(),
+        naming_rule_store: naming_rule_store.clone(),
         theme_config,
         pending_config_section,
         sidebar_visible,
