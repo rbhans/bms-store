@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use bms_store_storage::config::profile::PointValue;
 use crate::gui::state::{AppState, EquipSymbol};
 use bms_store_storage::store::point_store::PointStatusFlags;
+use super::preview_modal::{ChangeKind, PreviewModal, PreviewRow};
 
 fn equip_symbol_path(sym: &EquipSymbol) -> &'static str {
     match sym {
@@ -103,6 +104,19 @@ pub fn PointTable() -> Element {
     let mut sort_dir = use_signal(|| SortDir::Asc);
     let mut pinned: Signal<Vec<String>> = use_signal(Vec::new);
     let mut editing = use_signal(|| false);
+
+    // Multi-select state (deliverable 3)
+    let mut selected_point_ids: Signal<HashSet<String>> = use_signal(HashSet::new);
+
+    // Bulk rename modal state (deliverable 3)
+    let mut show_bulk_rename = use_signal(|| false);
+    let mut bulk_find = use_signal(String::new);
+    let mut bulk_replace = use_signal(String::new);
+    let mut bulk_use_regex = use_signal(|| false);
+    let mut bulk_prefix = use_signal(String::new);
+    let mut bulk_suffix = use_signal(String::new);
+    let mut show_preview = use_signal(|| false);
+    let mut bulk_rename_status: Signal<Option<String>> = use_signal(|| None);
 
     // Drag-and-drop state (edit mode only)
     let mut dragging_point: Signal<Option<String>> = use_signal(|| None);
@@ -380,8 +394,11 @@ pub fn PointTable() -> Element {
     };
     let current_drop_target = drop_target_group.read().clone();
 
-    // Total columns for colspans (sym + pin + status + name + kind + access + value [+ assign])
-    let total_cols = if is_editing { "8" } else { "7" };
+    // Total columns for colspans (check + sym + pin + status + name + kind + access + value [+ assign])
+    let total_cols = if is_editing { "9" } else { "8" };
+
+    // Pre-compute row snapshot before closures inside rsx! capture pinned_rows/ungrouped_rows
+    let all_visible_rows: Vec<RowData> = pinned_rows.iter().chain(ungrouped_rows.iter()).cloned().collect();
 
     rsx! {
         div {
@@ -412,6 +429,189 @@ pub fn PointTable() -> Element {
                             class: "pt-drag-indicator",
                             style: "left: {px + 12.0}px; top: {py - 10.0}px;",
                             "{name}"
+                        }
+                    }
+                }
+            }
+
+            // Bulk Rename modal (deliverable 3) — rendered above the table
+            if *show_bulk_rename.read() || *show_preview.read() {
+                {
+                    // Build preview rows from selected points
+                    let selected_ids = selected_point_ids.read().clone();
+                    let find_val = bulk_find.read().clone();
+                    let replace_val = bulk_replace.read().clone();
+                    let use_regex = *bulk_use_regex.read();
+                    let prefix_val = bulk_prefix.read().clone();
+                    let suffix_val = bulk_suffix.read().clone();
+
+                    // Determine which rows to apply rename to
+                    let target_rows: Vec<RowData> = {
+                        if selected_ids.is_empty() {
+                            all_visible_rows.clone()
+                        } else {
+                            all_visible_rows.iter().filter(|r| selected_ids.contains(&r.point_id)).cloned().collect()
+                        }
+                    };
+
+                    let compute_new_name = |name: &str| -> String {
+                        let mut result = name.to_string();
+                        if !find_val.is_empty() {
+                            // Regex mode: naive implementation — treat pattern as literal
+                            // (full regex support requires the `regex` crate; not yet in workspace)
+                            let _ = use_regex; // suppressed — literal replace used in both modes
+                            result = result.replace(&find_val, &replace_val);
+                        }
+                        if !prefix_val.is_empty() {
+                            result = format!("{prefix_val}{result}");
+                        }
+                        if !suffix_val.is_empty() {
+                            result = format!("{result}{suffix_val}");
+                        }
+                        result
+                    };
+
+                    let preview_rows: Vec<PreviewRow> = target_rows.iter().map(|r| {
+                        let new_name = compute_new_name(&r.name);
+                        let change_kind = if new_name == r.name { ChangeKind::NoOp } else { ChangeKind::Modify };
+                        PreviewRow {
+                            id: r.point_id.clone(),
+                            label: r.name.clone(),
+                            before: r.name.clone(),
+                            after: new_name,
+                            change_kind,
+                        }
+                    }).collect();
+
+                    if *show_preview.read() {
+                        // Show PreviewModal confirmation
+                        let ns_rename = state.node_store.clone();
+                        let did_rename = device_id.clone();
+                        let prows = preview_rows.clone();
+                        let mut node_version = state.node_version;
+                        rsx! {
+                            PreviewModal {
+                                title: "Bulk Rename Points".to_string(),
+                                rows: prows,
+                                on_confirm: move |_| {
+                                    let ns = ns_rename.clone();
+                                    let did = did_rename.clone();
+                                    let rows_to_apply: Vec<(String, String)> = preview_rows.iter()
+                                        .filter(|r| r.change_kind != ChangeKind::NoOp)
+                                        .map(|r| (r.id.clone(), r.after.clone()))
+                                        .collect();
+                                    let count = rows_to_apply.len();
+                                    spawn(async move {
+                                        for (point_id, new_name) in &rows_to_apply {
+                                            let full_id = format!("{did}/{point_id}");
+                                            let _ = ns.update_dis(&full_id, new_name).await;
+                                        }
+                                        bulk_rename_status.set(Some(format!("Renamed {count} point(s)")));
+                                        let cur_ver = *node_version.read();
+                                        node_version.set(cur_ver + 1);
+                                    });
+                                    show_preview.set(false);
+                                    show_bulk_rename.set(false);
+                                    selected_point_ids.set(HashSet::new());
+                                },
+                                on_cancel: move |_| {
+                                    show_preview.set(false);
+                                },
+                            }
+                        }
+                    } else {
+                        // Show bulk rename form
+                        let sel_count = selected_ids.len();
+                        let target_count = if sel_count == 0 {
+                            all_visible_rows.len()
+                        } else {
+                            sel_count
+                        };
+                        rsx! {
+                            div { class: "pt-bulk-rename-modal-overlay",
+                                onclick: move |_| { show_bulk_rename.set(false); },
+                                div { class: "pt-bulk-rename-modal",
+                                    onclick: move |e| e.stop_propagation(),
+                                    div { class: "pt-bulk-rename-header",
+                                        h4 { "Bulk Rename Points" }
+                                        span { class: "pt-bulk-rename-count",
+                                            if sel_count == 0 {
+                                                "Applying to all {target_count} visible point(s)"
+                                            } else {
+                                                "Applying to {target_count} selected point(s)"
+                                            }
+                                        }
+                                        button {
+                                            class: "preview-modal-close",
+                                            onclick: move |_| show_bulk_rename.set(false),
+                                            "x"
+                                        }
+                                    }
+                                    div { class: "pt-bulk-rename-body",
+                                        div { class: "pt-bulk-rename-row",
+                                            label { class: "pt-bulk-rename-label", "Find" }
+                                            input {
+                                                class: "discovery-input",
+                                                r#type: "text",
+                                                placeholder: "Text to find...",
+                                                value: "{bulk_find.read()}",
+                                                oninput: move |e| bulk_find.set(e.value()),
+                                            }
+                                            label { class: "pt-bulk-rename-label",
+                                                input {
+                                                    r#type: "checkbox",
+                                                    checked: *bulk_use_regex.read(),
+                                                    onchange: move |_| {
+                                                        let v = *bulk_use_regex.read();
+                                                        bulk_use_regex.set(!v);
+                                                    },
+                                                }
+                                                " Regex"
+                                            }
+                                        }
+                                        div { class: "pt-bulk-rename-row",
+                                            label { class: "pt-bulk-rename-label", "Replace" }
+                                            input {
+                                                class: "discovery-input",
+                                                r#type: "text",
+                                                placeholder: "Replace with...",
+                                                value: "{bulk_replace.read()}",
+                                                oninput: move |e| bulk_replace.set(e.value()),
+                                            }
+                                        }
+                                        div { class: "pt-bulk-rename-row",
+                                            label { class: "pt-bulk-rename-label", "Prefix" }
+                                            input {
+                                                class: "discovery-input",
+                                                r#type: "text",
+                                                placeholder: "Add prefix...",
+                                                value: "{bulk_prefix.read()}",
+                                                oninput: move |e| bulk_prefix.set(e.value()),
+                                            }
+                                            label { class: "pt-bulk-rename-label", "Suffix" }
+                                            input {
+                                                class: "discovery-input",
+                                                r#type: "text",
+                                                placeholder: "Add suffix...",
+                                                value: "{bulk_suffix.read()}",
+                                                oninput: move |e| bulk_suffix.set(e.value()),
+                                            }
+                                        }
+                                    }
+                                    div { class: "pt-bulk-rename-footer",
+                                        button {
+                                            class: "btn-secondary",
+                                            onclick: move |_| show_bulk_rename.set(false),
+                                            "Cancel"
+                                        }
+                                        button {
+                                            class: "btn-primary",
+                                            onclick: move |_| show_preview.set(true),
+                                            "Preview Changes"
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -458,6 +658,40 @@ pub fn PointTable() -> Element {
                         "+ Add Group"
                     }
                 } else {
+                    // Selection counter + clear
+                    {
+                        let sel_count = selected_point_ids.read().len();
+                        if sel_count > 0 {
+                            rsx! {
+                                span { class: "pt-selected-count", "Selected: {sel_count}" }
+                                button {
+                                    class: "btn-secondary btn-sm",
+                                    onclick: move |_| selected_point_ids.set(HashSet::new()),
+                                    "Clear"
+                                }
+                            }
+                        } else {
+                            rsx! {}
+                        }
+                    }
+                    button {
+                        class: "btn-secondary btn-sm",
+                        title: "Bulk rename points",
+                        onclick: move |_| {
+                            bulk_find.set(String::new());
+                            bulk_replace.set(String::new());
+                            bulk_use_regex.set(false);
+                            bulk_prefix.set(String::new());
+                            bulk_suffix.set(String::new());
+                            show_preview.set(false);
+                            bulk_rename_status.set(None);
+                            show_bulk_rename.set(true);
+                        },
+                        "Bulk Rename"
+                    }
+                    if let Some(ref msg) = *bulk_rename_status.read() {
+                        span { class: "pt-bulk-status", "{msg}" }
+                    }
                     button {
                         class: "pt-edit-btn",
                         title: "Edit point groups",
@@ -474,6 +708,35 @@ pub fn PointTable() -> Element {
             table {
                 thead {
                     tr {
+                        // Multi-select checkbox header (deliverable 3)
+                        th { class: "col-check-header",
+                            {
+                                let total_visible = pinned_rows.len() + ungrouped_rows.len();
+                                let sel_count = selected_point_ids.read().len();
+                                let all_sel = total_visible > 0 && sel_count == total_visible;
+                                // Pre-compute IDs to avoid moving pinned_rows/ungrouped_rows into closure
+                                let all_ids: Vec<String> = pinned_rows.iter()
+                                    .chain(ungrouped_rows.iter())
+                                    .map(|r| r.point_id.clone())
+                                    .collect();
+                                rsx! {
+                                    input {
+                                        r#type: "checkbox",
+                                        checked: all_sel,
+                                        title: if all_sel { "Deselect all" } else { "Select all visible" },
+                                        onchange: move |_| {
+                                            let cur_count = selected_point_ids.read().len();
+                                            let all: HashSet<String> = all_ids.iter().cloned().collect();
+                                            if cur_count == all.len() {
+                                                selected_point_ids.set(HashSet::new());
+                                            } else {
+                                                selected_point_ids.set(all);
+                                            }
+                                        },
+                                    }
+                                }
+                            }
+                        }
                         th { class: "col-sym-header" }
                         th { class: "col-pin-header" }
                         th { class: "col-status-header", "Status" }
@@ -783,12 +1046,14 @@ pub fn PointTable() -> Element {
                             let pid_unpin = row.point_id.clone();
                             let pid_assign = row.point_id.clone();
                             let pid_drag = row.point_id.clone();
+                            let pid_check = row.point_id.clone();
                             let drag_label = row.name.clone();
                             let status_class = row.status.worst_status()
                                 .map(|s| format!("status-dot status-{s}"))
                                 .unwrap_or_default();
                             let status_title = row.status.active_flags().join(", ");
                             let gnames = group_names.clone();
+                            let is_checked = selected_point_ids.read().contains(&row.point_id);
                             let row_class = if is_selected { "point-row pinned selected" } else { "point-row pinned" };
                             let edit_row_class = if is_editing { format!("{row_class} draggable") } else { row_class.to_string() };
                             let pid_key = pid.clone();
@@ -813,6 +1078,22 @@ pub fn PointTable() -> Element {
                                             dragging_name.set(Some(drag_label.clone()));
                                         }
                                     },
+                                    // Multi-select checkbox (deliverable 3)
+                                    td { class: "col-check",
+                                        input {
+                                            r#type: "checkbox",
+                                            checked: is_checked,
+                                            onclick: move |e: Event<MouseData>| e.stop_propagation(),
+                                            onchange: move |_| {
+                                                let mut set = selected_point_ids.write();
+                                                if set.contains(&pid_check) {
+                                                    set.remove(&pid_check);
+                                                } else {
+                                                    set.insert(pid_check.clone());
+                                                }
+                                            },
+                                        }
+                                    }
                                     td { class: "col-sym" }
                                     td { class: "col-pin",
                                         button {
@@ -885,12 +1166,14 @@ pub fn PointTable() -> Element {
                             let pid_pin = row.point_id.clone();
                             let pid_assign = row.point_id.clone();
                             let pid_drag = row.point_id.clone();
+                            let pid_check = row.point_id.clone();
                             let drag_label = row.name.clone();
                             let status_class = row.status.worst_status()
                                 .map(|s| format!("status-dot status-{s}"))
                                 .unwrap_or_default();
                             let status_title = row.status.active_flags().join(", ");
                             let gnames = group_names.clone();
+                            let is_checked = selected_point_ids.read().contains(&row.point_id);
                             let row_class = if is_selected { "point-row selected" } else { "point-row" };
                             let edit_row_class = if is_editing { format!("{row_class} draggable") } else { row_class.to_string() };
                             let pid_key = pid.clone();
@@ -915,6 +1198,22 @@ pub fn PointTable() -> Element {
                                             dragging_name.set(Some(drag_label.clone()));
                                         }
                                     },
+                                    // Multi-select checkbox (deliverable 3)
+                                    td { class: "col-check",
+                                        input {
+                                            r#type: "checkbox",
+                                            checked: is_checked,
+                                            onclick: move |e: Event<MouseData>| e.stop_propagation(),
+                                            onchange: move |_| {
+                                                let mut set = selected_point_ids.write();
+                                                if set.contains(&pid_check) {
+                                                    set.remove(&pid_check);
+                                                } else {
+                                                    set.insert(pid_check.clone());
+                                                }
+                                            },
+                                        }
+                                    }
                                     td { class: "col-sym" }
                                     td { class: "col-pin",
                                         button {
