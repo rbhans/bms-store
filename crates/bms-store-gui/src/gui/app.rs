@@ -361,6 +361,7 @@ pub(crate) fn ProjectApp(
     let weather_data = use_signal(|| Option::<bms_store_storage::weather::model::WeatherData>::None);
     let theme_config = use_signal(|| load_theme_config(&project_paths));
     let pending_config_section = use_signal(|| Option::<String>::None);
+    let sidebar_visible = use_signal(|| true);
 
     // Start weather refresh loop
     {
@@ -457,7 +458,7 @@ pub(crate) fn ProjectApp(
         weather_data,
         theme_config,
         pending_config_section,
-        sidebar_visible: use_signal(|| true),
+        sidebar_visible,
         atlas_lock: plat.atlas_lock.clone(),
     });
     use_context_provider(|| app_state.clone());
