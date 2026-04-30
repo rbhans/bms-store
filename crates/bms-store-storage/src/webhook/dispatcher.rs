@@ -3,7 +3,6 @@ use std::time::Duration;
 use crate::event::bus::{Event, EventBus};
 use crate::event::durable_sub::DurableSubscription;
 use crate::event::journal::EventJournal;
-use crate::store::alarm_store::AlarmStore;
 use crate::store::node_store::NodeStore;
 
 use super::model::{
@@ -23,7 +22,6 @@ const RETRY_DELAYS: [Duration; 3] = [
 /// EventBus subscriber that dispatches webhook notifications to configured endpoints.
 pub struct WebhookDispatcher {
     webhook_store: WebhookStore,
-    alarm_store: AlarmStore,
     node_store: NodeStore,
     project_name: String,
 }
@@ -31,13 +29,11 @@ pub struct WebhookDispatcher {
 impl WebhookDispatcher {
     pub fn new(
         webhook_store: WebhookStore,
-        alarm_store: AlarmStore,
         node_store: NodeStore,
         project_name: String,
     ) -> Self {
         Self {
             webhook_store,
-            alarm_store,
             node_store,
             project_name,
         }
@@ -99,10 +95,6 @@ impl WebhookDispatcher {
     async fn handle_event(&self, event: &Event, client: &reqwest::Client) {
         // Classify the event and extract key fields
         enum EventKind {
-            Alarm {
-                alarm_id: i64,
-                node_id: Option<String>,
-            },
             Device {
                 bridge_type: String,
                 device_key: String,
@@ -116,36 +108,6 @@ impl WebhookDispatcher {
         }
 
         let (event_type, kind) = match event {
-            Event::AlarmRaised { alarm_id, node_id } => (
-                WebhookEventType::AlarmRaised,
-                EventKind::Alarm {
-                    alarm_id: *alarm_id,
-                    node_id: Some(node_id.clone()),
-                },
-            ),
-            Event::AlarmCleared { alarm_id, node_id } => (
-                WebhookEventType::AlarmCleared,
-                EventKind::Alarm {
-                    alarm_id: *alarm_id,
-                    node_id: Some(node_id.clone()),
-                },
-            ),
-            Event::AlarmAcknowledged { alarm_id } => {
-                let resolved_node_id = {
-                    let actives = self.alarm_store.get_active_alarms().await;
-                    actives
-                        .iter()
-                        .find(|a| a.config_id == *alarm_id)
-                        .map(|a| format!("{}/{}", a.device_id, a.point_id))
-                };
-                (
-                    WebhookEventType::AlarmAcknowledged,
-                    EventKind::Alarm {
-                        alarm_id: *alarm_id,
-                        node_id: resolved_node_id,
-                    },
-                )
-            }
             Event::DeviceDown {
                 bridge_type,
                 device_key,
@@ -218,25 +180,6 @@ impl WebhookDispatcher {
 
         // Build payload based on event kind
         let (payload, severity_for_filter) = match kind {
-            EventKind::Alarm { alarm_id, node_id } => {
-                let (device_id, point_id, alarm_type, severity, trigger_value, message) =
-                    self.enrich_alarm(alarm_id).await;
-                let sev = severity.clone();
-                let p = WebhookPayload {
-                    event_type,
-                    alarm_id: Some(alarm_id),
-                    node_id,
-                    device_id,
-                    point_id,
-                    alarm_type,
-                    severity,
-                    trigger_value,
-                    message,
-                    timestamp_ms: now_ms,
-                    project_name: self.project_name.clone(),
-                };
-                (p, sev)
-            }
             EventKind::Device {
                 bridge_type,
                 device_key,
@@ -323,39 +266,6 @@ impl WebhookDispatcher {
         }
     }
 
-    async fn enrich_alarm(
-        &self,
-        alarm_id: i64,
-    ) -> (
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<f64>,
-        Option<String>,
-    ) {
-        let actives = self.alarm_store.get_active_alarms().await;
-        if let Some(alarm) = actives.iter().find(|a| a.config_id == alarm_id) {
-            let msg = format!(
-                "{} on {}/{}. Value: {}",
-                alarm.alarm_type.label(),
-                alarm.device_id,
-                alarm.point_id,
-                alarm.trigger_value,
-            );
-            (
-                Some(alarm.device_id.clone()),
-                Some(alarm.point_id.clone()),
-                Some(alarm.alarm_type.as_str().to_string()),
-                Some(alarm.severity.as_str().to_string()),
-                Some(alarm.trigger_value),
-                Some(msg),
-            )
-        } else {
-            (None, None, None, None, None, None)
-        }
-    }
-
     async fn matches_tags(&self, ep: &WebhookEndpoint, node_id: Option<&str>) -> bool {
         let filters = ep.parsed_tag_filters();
         if filters.is_empty() {
@@ -389,12 +299,18 @@ impl WebhookDispatcher {
     }
 }
 
-/// Compare severity strings using the AlarmSeverity ordering.
+/// Compare severity strings using a numeric ordering (info < warning < critical < life_safety).
 fn severity_meets_minimum(event_severity: &str, min_severity: &str) -> bool {
-    use crate::store::alarm_store::AlarmSeverity;
-    let event = AlarmSeverity::from_str(event_severity);
-    let min = AlarmSeverity::from_str(min_severity);
-    match (event, min) {
+    fn rank(s: &str) -> Option<u8> {
+        match s {
+            "info" => Some(0),
+            "warning" => Some(1),
+            "critical" => Some(2),
+            "life_safety" => Some(3),
+            _ => None,
+        }
+    }
+    match (rank(event_severity), rank(min_severity)) {
         (Some(e), Some(m)) => e >= m,
         _ => true, // Unknown severity, let it through
     }

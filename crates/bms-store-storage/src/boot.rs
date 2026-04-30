@@ -191,7 +191,6 @@ pub async fn boot_project_with_shutdown(
 
     WebhookDispatcher::new(
         webhook_store.clone(),
-        alarm_store.clone(),
         node_store.clone(),
         project_name.clone(),
     )
