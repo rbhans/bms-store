@@ -195,28 +195,6 @@ fn buffer_event(event: &Event, samples: &mut Vec<ExportSample>, alarms: &mut Vec
                 timestamp_ms: *timestamp_ms,
             });
         }
-        Event::AlarmRaised { alarm_id, node_id } => {
-            alarms.push(ExportAlarm {
-                alarm_id: *alarm_id,
-                node_id: node_id.clone(),
-                severity: String::new(), // severity not in event, left for enrichment
-                state: "raised".into(),
-                timestamp_ms: now_ms(),
-                value: None,
-                note: None,
-            });
-        }
-        Event::AlarmCleared { alarm_id, node_id } => {
-            alarms.push(ExportAlarm {
-                alarm_id: *alarm_id,
-                node_id: node_id.clone(),
-                severity: String::new(),
-                state: "cleared".into(),
-                timestamp_ms: now_ms(),
-                value: None,
-                note: None,
-            });
-        }
         Event::FddFaultRaised {
             fault_id,
             equip_id,

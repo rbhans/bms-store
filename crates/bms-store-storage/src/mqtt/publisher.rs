@@ -252,16 +252,6 @@ async fn handle_event(event: &Event, connections: &Arc<RwLock<HashMap<i64, Activ
             let payload = serialize_value(node_id, value, *timestamp_ms);
             (MqttEventType::Value, payload, ctx)
         }
-        Event::AlarmRaised { alarm_id, node_id } => {
-            let ctx = topic::context_from_alarm(node_id, "");
-            let payload = serialize_alarm(*alarm_id, node_id, "raised", now_ms());
-            (MqttEventType::Alarm, payload, ctx)
-        }
-        Event::AlarmCleared { alarm_id, node_id } => {
-            let ctx = topic::context_from_alarm(node_id, "");
-            let payload = serialize_alarm(*alarm_id, node_id, "cleared", now_ms());
-            (MqttEventType::Alarm, payload, ctx)
-        }
         Event::DeviceDown {
             bridge_type,
             device_key,
@@ -366,16 +356,6 @@ fn serialize_value(node_id: &str, value: &PointValue, timestamp_ms: i64) -> Stri
         "node_id": node_id,
         "value": val,
         "value_type": vtype,
-        "timestamp_ms": timestamp_ms,
-    })
-    .to_string()
-}
-
-fn serialize_alarm(alarm_id: i64, node_id: &str, event: &str, timestamp_ms: i64) -> String {
-    serde_json::json!({
-        "alarm_id": alarm_id,
-        "node_id": node_id,
-        "event": event,
         "timestamp_ms": timestamp_ms,
     })
     .to_string()

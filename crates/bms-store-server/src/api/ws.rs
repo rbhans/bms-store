@@ -278,49 +278,6 @@ fn event_to_ws(event: &Event, filters: &SubscriptionFilter, seq: Option<i64>) ->
                 "flags": flags,
             }),
         ),
-        Event::AlarmRaised { alarm_id, node_id } => (
-            "alarms",
-            serde_json::json!({
-                "event": "raised",
-                "alarm_id": alarm_id,
-                "node_id": node_id,
-            }),
-        ),
-        Event::AlarmCleared { alarm_id, node_id } => (
-            "alarms",
-            serde_json::json!({
-                "event": "cleared",
-                "alarm_id": alarm_id,
-                "node_id": node_id,
-            }),
-        ),
-        Event::AlarmAcknowledged { alarm_id } => (
-            "alarms",
-            serde_json::json!({
-                "event": "acknowledged",
-                "alarm_id": alarm_id,
-            }),
-        ),
-        Event::ScheduleWritten {
-            assignment_id,
-            node_id,
-            value,
-        } => {
-            let val = match value {
-                PointValue::Bool(b) => serde_json::json!(b),
-                PointValue::Integer(i) => serde_json::json!(i),
-                PointValue::Float(f) => serde_json::json!(f),
-            };
-            (
-                "schedules",
-                serde_json::json!({
-                    "event": "written",
-                    "assignment_id": assignment_id,
-                    "node_id": node_id,
-                    "value": val,
-                }),
-            )
-        }
         Event::DeviceDiscovered {
             bridge_type,
             device_key,
@@ -394,10 +351,7 @@ fn event_to_ws(event: &Event, filters: &SubscriptionFilter, seq: Option<i64>) ->
 fn event_node_id(event: &Event) -> Option<&str> {
     match event {
         Event::ValueChanged { node_id, .. }
-        | Event::StatusChanged { node_id, .. }
-        | Event::AlarmRaised { node_id, .. }
-        | Event::AlarmCleared { node_id, .. }
-        | Event::ScheduleWritten { node_id, .. } => Some(node_id),
+        | Event::StatusChanged { node_id, .. } => Some(node_id),
         _ => None,
     }
 }

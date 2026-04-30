@@ -4,7 +4,7 @@ use std::time::Duration;
 use rustbac_client::EventNotification;
 use rustbac_core::types::ObjectId;
 
-use crate::event::bus::{Event, EventBus};
+use crate::event::bus::EventBus;
 use crate::store::point_store::{PointKey, PointStatusFlags, PointStore};
 
 use super::conversion::object_point_id;
@@ -18,7 +18,7 @@ pub(super) async fn run_event_poll_loop(
     tc: TransportClient,
     store: PointStore,
     devices: &[BacnetDevice],
-    event_bus: Option<EventBus>,
+    _event_bus: Option<EventBus>,
 ) {
     // Wait for initial startup to settle
     tokio::time::sleep(Duration::from_secs(15)).await;
@@ -36,7 +36,7 @@ pub(super) async fn run_event_poll_loop(
                     // Extract the correct device key from the notification itself
                     let notif_dev_key =
                         format!("bacnet-{}", notification.initiating_device_id.instance());
-                    handle_event_notification(&store, &event_bus, &notif_dev_key, &notification);
+                    handle_event_notification(&store, &notif_dev_key, &notification);
                 }
                 Ok(None) => break, // no more pending notifications
                 Err(_) => break,   // timeout or error, stop draining
@@ -87,14 +87,6 @@ pub(super) async fn run_event_poll_loop(
                                     point_id: pid.clone(),
                                 };
                                 store.set_status(&key, PointStatusFlags::ALARM);
-
-                                if let Some(ref bus) = event_bus {
-                                    let node_id = format!("{dev_key}/{pid}");
-                                    bus.publish(Event::AlarmRaised {
-                                        alarm_id: summary.object_id.instance() as i64,
-                                        node_id,
-                                    });
-                                }
                             }
                         }
                     }
@@ -114,7 +106,6 @@ pub(super) async fn run_event_poll_loop(
 /// Process an unsolicited BACnet EventNotification.
 pub(super) fn handle_event_notification(
     store: &PointStore,
-    event_bus: &Option<EventBus>,
     dev_key: &str,
     notification: &EventNotification,
 ) {
@@ -140,20 +131,8 @@ pub(super) fn handle_event_notification(
 
     if is_alarm {
         store.set_status(&key, PointStatusFlags::ALARM);
-        if let Some(ref bus) = event_bus {
-            bus.publish(Event::AlarmRaised {
-                alarm_id: instance as i64,
-                node_id: format!("{dev_key}/{point_id}"),
-            });
-        }
     } else {
         store.clear_status(&key, PointStatusFlags::ALARM);
-        if let Some(ref bus) = event_bus {
-            bus.publish(Event::AlarmCleared {
-                alarm_id: instance as i64,
-                node_id: format!("{dev_key}/{point_id}"),
-            });
-        }
     }
 
     tracing::info!(

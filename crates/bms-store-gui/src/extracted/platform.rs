@@ -7,22 +7,16 @@ use bms_store_storage::event::bus::EventBus;
 use bms_store_storage::health::HealthRegistry;
 use bms_store_storage::logic::store::ProgramStore;
 use bms_store_storage::project::ProjectPaths;
-use bms_store_storage::store::alarm_store::AlarmStore;
 use bms_store_storage::store::audit_store::AuditStore;
 use bms_store_storage::store::commissioning_store::CommissioningStore;
 use bms_store_storage::store::discovery_store::DiscoveryStore;
-use bms_store_storage::store::energy_store::EnergyStore;
 use bms_store_storage::store::entity_store::EntityStore;
 use bms_store_storage::store::export_store::ExportStore;
-use bms_store_storage::store::fdd_store::FddStore;
 use bms_store_storage::store::history_store::HistoryStore;
 use bms_store_storage::store::mqtt_store::MqttStore;
 use bms_store_storage::store::node_store::NodeStore;
-use bms_store_storage::store::notification_store::NotificationStore;
 use bms_store_storage::store::override_store::OverrideStore;
 use bms_store_storage::store::point_store::PointStore;
-use bms_store_storage::store::report_store::ReportStore;
-use bms_store_storage::store::schedule_store::ScheduleStore;
 use bms_store_storage::store::user_store::UserStore;
 use bms_store_storage::store::webhook_store::WebhookStore;
 use tokio_util::sync::CancellationToken;
@@ -39,19 +33,13 @@ pub struct SharedPlatform {
     pub event_bus: EventBus,
     pub loaded: LoadedScenario,
     pub health: HealthRegistry,
-    pub alarm_store: AlarmStore,
-    pub schedule_store: ScheduleStore,
     pub history_store: HistoryStore,
     pub entity_store: EntityStore,
     pub discovery_store: DiscoveryStore,
     pub program_store: ProgramStore,
-    pub notification_store: NotificationStore,
     pub mqtt_store: MqttStore,
     pub commissioning_store: CommissioningStore,
-    pub report_store: ReportStore,
-    pub energy_store: EnergyStore,
     pub webhook_store: WebhookStore,
-    pub fdd_store: FddStore,
     pub export_store: ExportStore,
     pub override_store: OverrideStore,
     pub user_store: UserStore,
@@ -110,19 +98,13 @@ pub async fn init_platform(
         event_bus: storage.event_bus,
         loaded: storage.loaded,
         health: storage.health,
-        alarm_store: storage.alarm_store,
-        schedule_store: storage.schedule_store,
         history_store: storage.history_store,
         entity_store: storage.entity_store,
         discovery_store: storage.discovery_store,
         program_store: storage.program_store,
-        notification_store: storage.notification_store,
         mqtt_store: storage.mqtt_store,
         commissioning_store: storage.commissioning_store,
-        report_store: storage.report_store,
-        energy_store: storage.energy_store,
         webhook_store: storage.webhook_store,
-        fdd_store: storage.fdd_store,
         export_store: storage.export_store,
         override_store: storage.override_store,
         user_store: storage.user_store,

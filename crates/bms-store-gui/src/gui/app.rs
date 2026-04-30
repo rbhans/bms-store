@@ -7,7 +7,6 @@ use tokio::sync::Mutex;
 use bms_store_storage::config::profile::PointValue;
 
 use bms_store_storage::auth::AllRolePermissions;
-use bms_core::event::Event;
 use bms_store_storage::logic::engine::ExecutionEngine;
 use crate::platform::{init_platform, SharedPlatform};
 use bms_store_storage::project::{load_project_meta, ProjectMeta, ProjectPaths};
@@ -250,8 +249,6 @@ pub(crate) fn ProjectApp(
     let event_bus = plat.event_bus.clone();
     let loaded = plat.loaded.clone();
     let history_store = plat.history_store.clone();
-    // alarm_store kept for PointStatusFlags::ALARM sync only (not exposed via GUI)
-    let alarm_store = plat.alarm_store.clone();
     let entity_store = plat.entity_store.clone();
     let discovery_store = plat.discovery_store.clone();
     let discovery_service = plat.discovery_service.clone();
@@ -486,74 +483,11 @@ pub(crate) fn ProjectApp(
         });
     }
 
-    // Auto-start embedded API server when both desktop and api features are enabled.
-    // Uses app_state (which already has clones of all stores) to avoid move conflicts.
-    // Status sync — EventBus-driven alarm flag projection + periodic stale check.
+    // Status sync — periodic stale check.
     // Lifetime is the view scope (restarts on remount).
     let sync_store = store.clone();
-    let sync_alarm = alarm_store.clone();
-    let sync_bus = event_bus.clone();
-    let alarm_shutdown = view_shutdown.clone();
     let stale_shutdown = view_shutdown.clone();
     use_hook(move || {
-        // Alarm flag sync via EventBus (immediate, replaces 3-second poll for alarms)
-        let alarm_store_clone = sync_store.clone();
-        let alarm_alarm_clone = sync_alarm.clone();
-        let mut alarm_rx = sync_bus.subscribe();
-        spawn(async move {
-            // Do an initial full sync on startup
-            {
-                let keys = alarm_store_clone.all_keys();
-                let active = alarm_alarm_clone.get_active_alarms().await;
-                let alarmed_points: std::collections::HashSet<(String, String)> = active
-                    .iter()
-                    .map(|a| (a.device_id.clone(), a.point_id.clone()))
-                    .collect();
-                for key in &keys {
-                    let is_alarmed = alarmed_points
-                        .contains(&(key.device_instance_id.clone(), key.point_id.clone()));
-                    if is_alarmed {
-                        alarm_store_clone.set_status(key, PointStatusFlags::ALARM);
-                    } else {
-                        alarm_store_clone.clear_status(key, PointStatusFlags::ALARM);
-                    }
-                }
-            }
-
-            // Then react to alarm events
-            loop {
-                tokio::select! {
-                    _ = alarm_shutdown.cancelled() => break,
-                    result = alarm_rx.recv() => {
-                        match result {
-                            Ok(event) => match event.as_ref() {
-                                Event::AlarmRaised { node_id, .. } => {
-                                    if let Some((dev, pt)) = node_id.split_once('/') {
-                                        let key = PointKey {
-                                            device_instance_id: dev.to_string(),
-                                            point_id: pt.to_string(),
-                                        };
-                                        alarm_store_clone.set_status(&key, PointStatusFlags::ALARM);
-                                    }
-                                }
-                                Event::AlarmCleared { node_id, .. } => {
-                                    if let Some((dev, pt)) = node_id.split_once('/') {
-                                        let key = PointKey {
-                                            device_instance_id: dev.to_string(),
-                                            point_id: pt.to_string(),
-                                        };
-                                        alarm_store_clone.clear_status(&key, PointStatusFlags::ALARM);
-                                    }
-                                }
-                                _ => {}
-                            },
-                            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
-                            Err(_) => break,
-                        }
-                    }
-                }
-            }
-        });
 
         // Stale check remains periodic (every 30 seconds — staleness is time-based)
         let stale_store = sync_store.clone();
