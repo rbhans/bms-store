@@ -1,18 +1,11 @@
-pub mod alarms;
 pub mod audit;
-#[cfg(feature = "cloud")]
-pub mod cloud;
 pub mod discovery;
-pub mod energy;
 pub mod export;
-pub mod fdd;
 pub mod history;
 pub mod nodes;
 pub mod overrides;
 pub mod points;
 pub mod programs;
-pub mod reports;
-pub mod schedules;
 pub mod system;
 pub mod users;
 pub mod webhooks;
@@ -106,31 +99,6 @@ pub fn build_router(state: ApiState) -> Router {
         .route("/nodes/{id}/tags", put(nodes::set_tags))
         .route("/nodes/{id}/hierarchy", get(nodes::get_hierarchy))
         .route("/nodes/{id}/ancestors", get(nodes::get_ancestors))
-        // Alarms
-        .route("/alarms/active", get(alarms::active_alarms))
-        .route("/alarms/{id}/ack", post(alarms::acknowledge_alarm))
-        .route("/alarms/ack-all", post(alarms::acknowledge_all))
-        .route("/alarms/configs", get(alarms::list_configs))
-        .route("/alarms/history", get(alarms::alarm_history))
-        .route("/alarms/history/export", get(alarms::alarm_history_export))
-        // Schedules
-        .route(
-            "/schedules",
-            get(schedules::list_schedules).post(schedules::create_schedule),
-        )
-        .route(
-            "/schedules/{id}",
-            get(schedules::get_schedule).put(schedules::update_schedule),
-        )
-        .route("/schedules/{id}/delete", delete(schedules::delete_schedule))
-        .route(
-            "/schedules/{id}/assignments",
-            get(schedules::list_assignments).post(schedules::create_assignment),
-        )
-        .route(
-            "/schedules/assignments/{id}/delete",
-            delete(schedules::delete_assignment),
-        )
         // History
         .route(
             "/history/{device_id}/{point_id}",
@@ -203,31 +171,6 @@ pub fn build_router(state: ApiState) -> Router {
             "/system/backup-config",
             get(system::get_backup_config).put(system::set_backup_config),
         )
-        // Reports
-        .route(
-            "/reports",
-            get(reports::list_reports).post(reports::create_report),
-        )
-        .route(
-            "/reports/{id}",
-            get(reports::get_report)
-                .put(reports::update_report)
-                .delete(reports::delete_report),
-        )
-        .route("/reports/{id}/run", post(reports::run_report))
-        .route(
-            "/reports/{id}/schedules",
-            get(reports::list_schedules).post(reports::create_schedule),
-        )
-        .route(
-            "/reports/schedules/{id}",
-            put(reports::update_schedule).delete(reports::delete_schedule),
-        )
-        .route("/reports/{id}/executions", get(reports::list_executions))
-        .route(
-            "/reports/executions/{id}/html",
-            get(reports::get_execution_html),
-        )
         // Webhooks
         .route(
             "/webhooks",
@@ -245,54 +188,6 @@ pub fn build_router(state: ApiState) -> Router {
                 .delete(webhooks::delete_endpoint),
         )
         .route("/webhooks/{id}/test", post(webhooks::test_endpoint))
-        // Energy
-        .route(
-            "/energy/meters",
-            get(energy::list_meters).post(energy::create_meter),
-        )
-        .route(
-            "/energy/meters/{id}",
-            get(energy::get_meter)
-                .put(energy::update_meter)
-                .delete(energy::delete_meter),
-        )
-        .route(
-            "/energy/rates",
-            get(energy::list_rates).post(energy::create_rate),
-        )
-        .route(
-            "/energy/rates/{id}",
-            put(energy::update_rate).delete(energy::delete_rate),
-        )
-        .route(
-            "/energy/baselines",
-            get(energy::list_baselines).post(energy::create_baseline),
-        )
-        .route("/energy/baselines/{id}", delete(energy::delete_baseline))
-        .route("/energy/summary", get(energy::get_summary))
-        .route("/energy/consumption", get(energy::get_consumption))
-        .route("/energy/export", get(energy::export_csv))
-        // FDD
-        .route("/fdd/rules", get(fdd::list_rules).post(fdd::create_rule))
-        .route(
-            "/fdd/rules/{id}",
-            get(fdd::get_rule)
-                .put(fdd::update_rule)
-                .delete(fdd::delete_rule),
-        )
-        .route(
-            "/fdd/bindings",
-            get(fdd::list_bindings).post(fdd::create_binding),
-        )
-        .route("/fdd/bindings/auto", post(fdd::auto_bind))
-        .route(
-            "/fdd/bindings/{id}",
-            put(fdd::update_binding).delete(fdd::delete_binding),
-        )
-        .route("/fdd/faults/active", get(fdd::active_faults))
-        .route("/fdd/faults/ack-all", post(fdd::acknowledge_all))
-        .route("/fdd/faults/{id}/ack", post(fdd::acknowledge_fault))
-        .route("/fdd/history", get(fdd::fault_history))
         // Export
         .route(
             "/export/connectors",
@@ -310,22 +205,6 @@ pub fn build_router(state: ApiState) -> Router {
             "/export/connectors/{id}/backfill",
             post(export::backfill_connector),
         );
-
-    // Cloud bridges (feature-gated)
-    #[cfg(feature = "cloud")]
-    let api = api
-        .route(
-            "/cloud/bridges",
-            get(cloud::list_bridges).post(cloud::create_bridge),
-        )
-        .route("/cloud/status", get(cloud::list_statuses))
-        .route(
-            "/cloud/bridges/{id}",
-            get(cloud::get_bridge)
-                .put(cloud::update_bridge)
-                .delete(cloud::delete_bridge),
-        )
-        .route("/cloud/bridges/{id}/test", post(cloud::test_bridge));
 
     // WebSocket
     let api = api.route("/ws", get(ws::ws_handler));
