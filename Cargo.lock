@@ -566,6 +566,7 @@ dependencies = [
  "hmac 0.12.1",
  "libc",
  "rand 0.8.6",
+ "regex",
  "reqwest",
  "rfd 0.15.4",
  "rhai",
