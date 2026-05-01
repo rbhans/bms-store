@@ -1,0 +1,39 @@
+//
+// Copyright (c) 2024, Project-Haystack
+// Licensed under the Academic Free License version 3.0
+//
+// History:
+//   27 Mar 2024 Brian Frank  Creation
+//
+
+// Attribute with a string value type
+StrAttr: Attr <abstract> {
+  val: Str       // String value of the attribute
+}
+
+// Attribute with a date value type
+DateAttr: Attr <abstract> {
+  val: Date      // Date value of the attribute
+}
+
+// Attribute with a number value type
+NumberAttr: Attr <abstract> {
+  val: Number    // Number value of the attribute
+}
+
+// Attribute with a number value with length unit
+LengthAttr: NumberAttr <abstract> {
+  val: Number <quantity:"length">
+}
+
+// Attribute with a number value with mass (weight) unit
+MassAttr: NumberAttr <abstract> {
+  val: Number <quantity:"mass">
+}
+
+// Attribute with a number value with temperature unit
+TempAttr : NumberAttr <abstract> {
+  temp
+  val: Number <quantity:"temperature">
+}
+

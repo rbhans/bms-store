@@ -1,0 +1,14 @@
+//
+// Copyright (c) 2025, Project-Haystack
+// Licensed under the Academic Free License version 3.0
+//
+// History:
+//   30 Aug 2025  Brian Frank  Creation
+//
+
++Spec {
+  // Link applied on the *to* slot with dotted path for *from* slot.
+  // See [documentation](doc.xeto::Comps#links)
+  link: Str?
+}
+

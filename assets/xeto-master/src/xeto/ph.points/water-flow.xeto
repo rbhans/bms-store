@@ -1,0 +1,50 @@
+//
+// Copyright (c) 2024, Project-Haystack
+// Licensed under the Academic Free License version 3.0
+//
+// History:
+//   21 Mar 2024  Brian Frank  Creation
+//
+
+// Point associated with rate of volumetric flow of water
+WaterFlowPoint : NumberPoint <abstract> {
+  water
+  flow
+  unit: Unit <quantity:"volumetricFlow"> "gal/min"
+}
+
+// Sensor for volumetric flow of water
+WaterFlowSensor : WaterFlowPoint & SensorPoint <abstract>
+
+// Setpoint for volumetric flow of water
+WaterFlowSp : WaterFlowPoint & SpPoint <abstract>
+
+//////////////////////////////////////////////////////////////////////////
+// Domestic
+//////////////////////////////////////////////////////////////////////////
+
+// Sensor for volumetric flow of domestic water
+DomesticWaterFlowSensor : WaterFlowSensor { domestic }
+
+// Setpoint for volumetric flow of domestic water
+DomesticWaterFlowSp : WaterFlowSp { domestic }
+
+//////////////////////////////////////////////////////////////////////////
+// Chilled Water
+//////////////////////////////////////////////////////////////////////////
+
+// Sensor for volumetric flow of chilled water
+ChilledWaterFlowSensor : WaterFlowSensor { chilled }
+
+// Setpoint for volumetric flow of chilled water
+ChilledWaterFlowSp : WaterFlowSp { chilled }
+
+//////////////////////////////////////////////////////////////////////////
+// Hot Water
+//////////////////////////////////////////////////////////////////////////
+
+// Sensor for volumetric flow of hot water
+HotWaterFlowSensor : WaterFlowSensor { hot }
+
+// Setpoint for volumetric flow of hot water
+HotWaterFlowSp : WaterFlowSp { hot }

@@ -1,0 +1,45 @@
+//
+// Copyright (c) 2025, Project-Haystack
+// Licensed under the Academic Free License version 3.0
+//
+// History:
+//   10 Dec 2025  Rick Jennings  Creation
+//
+
+// Point associated with surface temperature
+SurfaceTempPoint : NumberPoint <abstract> {
+  surface
+  temp
+  unit: Unit <quantity:"temperature"> "°F"
+}
+
+// Sensor that measures surface temperature
+SurfaceTempSensor : SurfaceTempPoint & SensorPoint <abstract>
+
+// Sensor that measures temperature of a heatsink
+HeatsinkSurfaceTempSensor : SurfaceTempSensor { heatsink }
+
+// Sensor that measures temperature of an electric cable
+CableSurfaceTempSensor : SurfaceTempSensor { cable }
+
+// Sensor that measures temperature of an electric coupler
+CouplerSurfaceTempSensor : SurfaceTempSensor { coupler }
+
+// Sensor that measures temperature of a motor
+MotorTempSensor : SurfaceTempSensor { motor }
+
+// Sensor that measures temperature of a motor winding
+MotorWindingTempSensor : MotorTempSensor { winding }
+
+// Sensor that measures temperature of a motor bearing
+MotorBearingTempSensor : MotorTempSensor { bearing }
+
+//////////////////////////////////////////////////////////////////////////
+// EVSE
+//////////////////////////////////////////////////////////////////////////
+
+// Sensor that measures temperature of an EVSE cable
+EvseCableSurfaceTempSensor : CableSurfaceTempSensor { evse }
+
+// Sensor that measures temperature of an EVSE coupler
+EvseCouplerSurfaceTempSensor : CouplerSurfaceTempSensor { evse }

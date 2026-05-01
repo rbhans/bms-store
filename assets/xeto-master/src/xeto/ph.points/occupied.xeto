@@ -1,0 +1,40 @@
+//
+// Copyright (c) 2022, Project-Haystack
+// Licensed under the Academic Free License version 3.0
+//
+// History:
+//   3 Nov 2022  Brian Frank  Creation
+//
+
+// Point associated with the occupied state.  This is a boolean
+// state where false means unoccupied and true means occupied.
+OccupiedPoint : BoolPoint <abstract> {
+  occupied
+  enum: Obj <val:OccupiedEnum>
+}
+
+// Unoccupied/occupied enumeration
+OccupiedEnum : Enum { unoccupied, occupied }
+
+// Occupancy sensor
+OccupiedSensor : OccupiedPoint & SensorPoint <abstract>
+
+// Occupancy setpoint
+OccupiedSp : OccupiedPoint & SpPoint <abstract>
+
+//////////////////////////////////////////////////////////////////////////
+// Zone
+//////////////////////////////////////////////////////////////////////////
+
+// Occupancy sensor for zone space
+ZoneOccupiedSensor : OccupiedSensor { zone }
+
+// Occupancy setpoint for zone space
+ZoneOccupiedSp : OccupiedSp { zone }
+
+//////////////////////////////////////////////////////////////////////////
+// Other
+//////////////////////////////////////////////////////////////////////////
+
+// Occupancy sensor for a parking bay
+ParkingBayOccupiedSensor : OccupiedSensor { parkingBay }

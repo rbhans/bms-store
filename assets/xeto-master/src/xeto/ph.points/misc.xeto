@@ -1,0 +1,110 @@
+//
+// Copyright (c) 2023, Project-Haystack
+// Licensed under the Academic Free License version 3.0
+//
+// History:
+//   5 Apr 2023  Brian Frank  Creation
+//
+
+// Dessicant dehumidifier enable command
+DessicantDehumidifierCmd : BoolPoint { dessicantDehumidifier }
+
+// Temperature conditioning mode for a zone in an HVAC system
+ZoneAirHvacModeSp : EnumPoint & SpPoint { zone, air, hvacMode }
+
+// Point associated with the on/off state of equipment
+RunPoint : BoolPoint <abstract> {
+  run
+  enum: Obj <val:RunEnum>
+}
+
+// On and off enumeration
+RunEnum: Enum { off, on }
+
+// Sensor for on/off state of equipment
+RunSensor : RunPoint & SensorPoint
+
+// Sensor for on/off state of cooling equipment
+CoolRunSensor : RunSensor {
+  cool
+  stage: Int? <minVal: 1>
+}
+
+// Sensor for on/off state of heating equipment
+HeatRunSensor : RunSensor {
+  heat
+  stage: Int? <minVal: 1>
+}
+
+// On/off command to run equipment
+RunCmd : RunPoint & CmdPoint
+
+// On/off command to run cooling equipment
+CoolRunCmd : RunCmd {
+  cool
+  stage: Int? <minVal: 1>
+}
+
+// On/off command to run heating equipment
+HeatRunCmd : RunCmd {
+  heat
+  stage: Int? <minVal: 1>
+}
+
+// Point that enables or disables equipment
+EnablePoint : BoolPoint <abstract> {
+  enable
+  enum: Obj <val:RunEnum>
+}
+
+// Command to permit/prohibit equipment to run.
+// Used as an interlock with a run command.
+EnableCmd : EnablePoint & CmdPoint
+
+// Command to permit/prohibit cooling equipment to run.
+// Used as an interlock with a run command.
+CoolEnableCmd : EnableCmd { cool }
+
+// Command to permit/prohibit heating equipment to run.
+// Used as an interlock with a run command.
+HeatEnableCmd : EnableCmd { heat }
+
+// Boolean alarm condition
+AlarmSensor : BoolPoint & SensorPoint <abstract> { alarm }
+
+// Point for modulating control of equipment such as
+// valves, dampers, and motors as a percentage from 0% to 100%.
+ModulatingPoint : NumberPoint <abstract> {
+  modulating
+  unit: Unit <invariant> "%"
+}
+
+// Point for modulating cooling capacity as a percentage from 0% to 100%.
+CoolModulatingPoint : ModulatingPoint <abstract> {
+  cool
+  stage: Int? <minVal: 1>
+}
+
+// Sensor for modulating cooling capacity as a percentage from 0% to 100%.
+CoolModulatingSensor : CoolModulatingPoint & SensorPoint
+
+// Command for modulating cooling capacity as a percentage from 0% to 100%.
+CoolModulatingCmd : CoolModulatingPoint & CmdPoint
+
+// Point for modulating heating capacity as a percentage from 0% to 100%.
+HeatModulatingPoint : ModulatingPoint <abstract> {
+  heat
+  stage: Int? <minVal: 1>
+}
+
+// Sensor for modulating heating capacity as a percentage from 0% to 100%.
+HeatModulatingSensor : HeatModulatingPoint & SensorPoint
+
+// Command for modulating heating capacity as a percentage from 0% to 100%.
+HeatModulatingCmd : HeatModulatingPoint & CmdPoint
+
+// Sensor for equipment runtime
+RuntimeSensor : NumberPoint & SensorPoint {
+  runtime
+  unit: Unit <quantity:"time"> "hr"
+}

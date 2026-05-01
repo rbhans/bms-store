@@ -1,0 +1,565 @@
+//
+// Copyright (c) 2011-2025, Project-Haystack
+// Licensed under the Academic Free License version 3.0
+//
+// History:
+//   15 Mar 2025  Auto-generate
+//   20 Nov 2025  Brian Frank    Re-orangize using PhEntity
+//
+
+// Equipment asset.
+// See [ph.doc::Equips] chapter.
+Equip: PhEntity <abstract> {
+  equip
+  equipRef:     Ref?
+  siteRef:      Ref
+  spaceRef:     Ref?
+  systemRef:    MultiRef?
+  parentEquips: Query<of:Equip, via:"equipRef+">                  // Parent Equips that contain this Equip
+  childEquips:  Query<of:Equip, inverse:"ph::Equip.parentEquips"> // Child Equips contained by this Equip
+  points:       Query<of:Point, inverse:"ph::Point.equips">       // Child Points contained by this Equip
+}
+
+// AC Electricity meter.
+// See [ph.doc::Meters] chapter.
+AcElecMeter: ElecMeter {
+  ac
+  phaseCount: PhaseCount?
+}
+
+// An AC EVSE port delivers [ph::PhEntity.ac] electricity to a single EV charging inlet
+// at a time.  See [ph.doc::EVSE#evse-port] chapter.
+//
+// Typically a max current or max power setpoint should reference an AC
+// EVSE port, but not both.  Usually it is preferred to control an AC EVSE
+// port using a max current setpoint.
+//
+// It is recommended to include electrical location related tags on
+// electrical points that reference an AC EVSE port.  See
+// [ph.doc::Meters#electric-meters] chapter for more details.
+AcEvsePort: EvsePort {
+  ac
+}
+
+// Equipment to move or control a mechanism.  Actuators may be manually
+// operated or automated via a control system to convert an energy source
+// into mechanical energy.  Typically the energy source is electricity,
+// hydraulics, or pneumatics.
+Actuator: Equip {
+  actuator
+}
+
+// Air Handling Unit: An enclosure with a fan that delivers air to a space
+// via ductwork and performs one or more of the functions of cleaning,
+// heating, cooling, humidifying, dehumidifying, ventilating or circulating
+// the air.  See [ph.doc::AHUs] chapter.
+Ahu: AirHandlingEquip {
+  ahu
+}
+
+// HVAC equipment that conditions and delivers air via one or more fans.
+// Conditioning of air includes heating, cooling, humidification,
+// dehumidification, and ventilation. See [ph.doc::AHUs] chapter.
+AirHandlingEquip: Equip <abstract> {
+  ahuZoneDelivery:        AhuZoneDelivery?
+  airVolumeAdjustability: AirVolumeAdjustability?
+  coolingProcess:         CoolingProcess? <multiChoice>
+  ductConfig:             DuctConfig?
+  ductDeck:               DuctDeck?
+  heatingProcess:         HeatingProcess? <multiChoice>
+}
+
+// Equipment in air distribution systems which terminate at the space.
+// Terminal units receive air from [ph::AirHandlingEquip] which have the
+// primarily responsibility to condition air.  Terminal units are primarily
+// responsible for delivery of air to the space and tempering the temperature.
+AirTerminalUnit: Equip <abstract> {
+  ductConfig: DuctConfig?
+}
+
+// Aquifer Thermal Energy Storage system.
+// See [ph.doc::ATES] chapter.
+Ates: Equip {
+  ates
+  atesDesign: AtesDesign?
+}
+
+// Equipment used to store electric energy
+Battery: Equip {
+  battery
+}
+
+// Equipment to generate hot water or steam for heating
+Boiler: Equip {
+  boiler
+  heatingProcess: HeatingProcess?
+}
+
+// Branch selector used for heat recovery in a VRF system.  These are
+// control devices directing the liquid refrigerant or gas refrigerant
+// to zones requiring cooling or heating. See [ph.doc::VRF#branch-selector]
+// chapter.
+BranchSelector: VrfEquip {
+  branchSelector
+}
+
+// An assembly of one or more insulated conductors.
+Cable: Equip {
+  cable
+}
+
+// Constant air volume terminal unit.  CAV systems use a constant
+// air flow rate with a variable air temperature.
+Cav: AirTerminalUnit {
+  cav
+}
+
+// Plant used to generate chilled water for cooling.
+// See [ph.doc::Plants].
+ChilledWaterPlant: Plant {
+  chilled
+  water
+  condenserLoop: CondenserLoop?
+}
+
+// Conditions a space using a heat exchanger integrated into the ceiling
+ChilledBeam: RadiantEquip {
+  chilledBeam
+  coolingProcess: CoolingProcess?
+  heatingProcess: HeatingProcess?
+}
+
+// Equipment to remove heat from a liquid.  Chillers typically use a vapor
+// compression or an absorption refrigeration cycle.
+Chiller: Equip {
+  chiller
+  chillerMechanism: ChillerMechanism?
+  coolingCapacity:  Number?
+}
+
+// Electrical circuit and its associated components such as breakers.
+// See [ph.doc::ElecPanels#circuit] chapter.
+Circuit: Equip {
+  circuit
+}
+
+// Heat exchanger used to heat or cool air.  Coils are sub-components
+// of HVAC equipment such as [ph::AirHandlingEquip].
+Coil: HeatExchanger <abstract> {
+}
+
+// Duct, pipe, or cable to convey a substance or phenomenon
+Conduit: Equip <abstract> {
+}
+
+// Panel housing controllers and networking gear
+ControlsPanel: Panel {
+  controls
+}
+
+// Coil used to cool air.
+CoolingCoil: Coil {
+  coolingCoil
+  coolingProcess: CoolingProcess?
+}
+
+// Equipment to transfer waste heat into the atmosphere
+CoolingTower: Equip {
+  coolingTower
+}
+
+// Computer Room Air Conditioner: An FCU designed to condition a computer
+// room.  See [ph.doc::AHUs] and [ph.doc::DataCenters] chapters.
+Crac: Fcu {
+  crac
+}
+
+// Equipment to regulate the flow of air in ductwork.  Dampers may be
+// manually operated or automated via an actuator.  Non-actuated dampers
+// such as manual balancing dampers, backdraft dampers, and fire dampers
+// use this spec directly.  BAS-controlled dampers use DamperActuator.
+Damper: Equip <abstract> {
+  damper
+  ductSection: DuctSection?
+}
+
+// Actuator to regulate the flow of air.
+DamperActuator: Actuator & Damper {
+}
+
+// DC Electricity meter.
+// See [ph.doc::Meters] chapter.
+DcElecMeter: ElecMeter {
+  dc
+}
+
+// A DC EVSE port delivers [ph::PhEntity.dc] electricity to a single EV charging inlet
+// at a time.  See [ph.doc::EVSE#evse-port] chapter.
+//
+// Typically a max current or max power setpoint should reference a DC
+// EVSE port, but not both.  Usually it is preferred to control a DC EVSE
+// port using a max power setpoint.
+DcEvsePort: EvsePort {
+  dc
+}
+
+// Dedicated Outside Air System: An AHU that brings in 100% outside air and
+// no recirculated air in order to provide ventilation to spaces.
+// See [ph.doc::AHUs] chapter.
+Doas: Ahu {
+  doas
+}
+
+// Conduit used to convey air for HVAC
+Duct: Conduit {
+  duct
+  ductDeck:    DuctDeck?
+  ductSection: DuctSection?
+}
+
+// Electricity meter
+ElecMeter: Meter {
+  elec
+}
+
+// Physical housing for electrical circuits, fuses, and breakers.
+// See [ph.doc::ElecPanels#elec-panel] chapter.
+ElecPanel: Panel {
+  elec
+}
+
+// Enclosure used to move people between floors.
+Elevator: VerticalTransport {
+  elevator
+}
+
+// Moving staircase used to move people between floors.
+Escalator: VerticalTransport {
+  escalator
+}
+
+// Tethered cable with connector, socket/receptacle, or wireless inductive charging pad on an EVSE.
+// Interfaces with the vehicle directly or via an EV driver supplied charging cable.
+EvseCoupler: EvseEquip <abstract> {
+  coupler
+}
+
+// The electrical cable between an [ph::EvsePort] and an EV charging inlet
+// on a vehicle. The [ph::PhEntity.evseCableType] tag distinguishes the type of cable.
+// See [ph.doc::EVSE#evse-cable] chapter.
+EvseCable: EvseCoupler {
+  cable
+  evseCableType: EvseCableType?
+}
+
+// Equipment that dispenses electricity to an EV.  It consists of a
+// physical EVSE enclosure and its contents to which an [ph::EvseCable]
+// attaches.  An [ph::EvseDispenser] can contain zero or more [ph::EvsePort].
+//
+// Children points are used to describe or control one or more [ph::EvsePort]
+// within the EVSE manufacturer's package.
+//
+// See [ph.doc::EVSE#evse-dispenser] chapter.
+EvseDispenser: EvseEquip {
+  dispenser
+}
+
+// Equipment that supports the delivery of electricity to charging inlets
+// located on EVs.  See [ph.doc::EVSE] chapter.
+EvseEquip: Equip {
+  evse
+}
+
+// An EVSE port delivers electricity to a single EV charging inlet at a
+// time.  Comprised of a software-controlled electrical contactor or
+// circuit breaker.  Typically contained within an [ph::EvseDispenser], but
+// may be contained within an [ph::EvsePowerConverter].  More than one
+// [ph::EvseCable] may be connected to a single [ph::EvsePort], however, only one
+// may be energized at any given time.
+//
+// Note:  In the future we might add an entity that describes [ph::EvsePort]
+// contained in an AC distribution panel.  This scenario is not common.
+//
+// See [ph.doc::EVSE#evse-port] chapter.
+EvsePort: EvseEquip {
+  port
+}
+
+// A power converter that has a [ph::PhEntity.dc] electrical output applied to a
+// [ph::DcEvsePort].  May be contained within an [ph::EvseDispenser] or in a
+// separate dedicated equipment enclosure.
+//
+// Children points are used to describe or control one or more [ph::EvsePort]
+// within the EVSE manufacturer's package.
+//
+// See [ph.doc::EVSE#evse-power-converter] chapter.
+EvsePowerConverter: EvseEquip {
+  powerConverter
+}
+
+// Motor used with a fan to create air flow.
+// See [ph.doc::Motors] chapter.
+FanMotor: Motor {
+  fan
+  ductSection: DuctSection?
+}
+
+// Fan Coil Unit: A unitary, factory-made enclosure with a fan and coil
+// that recirculates air in a space and performs one or more of the
+// functions of cleaning, heating, cooling, humidifying, dehumidifying,
+// or ventilating the air. Unit heaters are examples of FCUs.
+// See [ph.doc::AHUs] chapter.
+Fcu: AirHandlingEquip {
+  fcu
+}
+
+// Meter to measure flow rate and total volume of fluid.
+// See [ph.doc::Meters] chapter.
+FlowMeter: Meter {
+  flow
+}
+
+// System to change direction of substance flow
+FlowInverter: Equip {
+  flowInverter
+}
+
+// Ventilation equipment to limit exposure to hazardous fumes.
+FumeHood: Equip {
+  fumeHood
+}
+
+// Equipment to transfer heat between two working fluids.
+HeatExchanger: Equip {
+  heatExchanger
+}
+
+// Coil used to heat air.
+HeatingCoil: Coil {
+  heatingCoil
+  heatingProcess: HeatingProcess?
+}
+
+// Boiler which outputs hot water
+HotWaterBoiler: Boiler {
+  hot
+  water
+}
+
+// Plant used to generate hot water for heating.
+// See [ph.doc::Plants].
+HotWaterPlant: Plant {
+  hot
+  water
+}
+
+// Equipment which adds moisture to air to increase humidity
+HumidifierEquip: Equip {
+  humidifier
+}
+
+// Light fixture using electricity to provide illumination
+Luminaire: Equip {
+  luminaire
+}
+
+// Makeup Air Unit: A DOAS that provides make-up air for a separate, dedicated
+// exhaust system. That is, this equip does not contain an exhaust air section.
+// See [ph.doc::AHUs] chapter.
+Mau: Doas {
+  mau
+}
+
+// Equipment to meter a substance or phenomenon.
+// See [ph.doc::Meters] chapter.
+Meter: Equip {
+  meter
+  meterScope: MeterScope?
+  submeterOf: Ref?
+}
+
+// Equipment that converts electrical energy into mechanical energy.
+// See [ph.doc::Motors] chapter.
+Motor: Equip {
+  motor
+  phaseCount: PhaseCount?
+  vfd:        Marker?
+}
+
+// Conveyor to move people across a horizontal or inclined plane.
+MovingWalkway: VerticalTransport {
+  movingWalkway
+}
+
+// Enclosure for electrical and control equipment.  Panels may be
+// used to isolate electrical connections and provide environmental
+// protection.
+Panel: Equip {
+  panel
+}
+
+// Conduit used to convey a fluid
+Pipe: Conduit {
+  pipe
+  pipeFluid:   Fluid?
+  pipeSection: PipeSection?
+  plantLoop:   PlantLoop?
+}
+
+// Central plant used to generate a substance for a process.
+// See [ph.doc::Plants].
+Plant: Equip {
+  plant
+}
+
+// Motor used with a pump to move fluid.
+// See [ph.doc::Motors] chapter.
+PumpMotor: Motor {
+  pump
+  pipeFluid:   Fluid?
+  pipeSection: PipeSection?
+}
+
+// Enclosure or chassis used to mount computer and networking gear.
+// Devices are mounted to rails of a standard width, typically 19 or 23
+// inches.  Height is measured in *rack units* where one 1U is 1.75 inches.
+// A full rack has a height of 42U.
+// See [ph.doc::DataCenters#racks] chapter.
+Rack: Equip {
+  rack
+}
+
+// HVAC equipment that conditions a space without forced air.
+RadiantEquip: Equip <abstract> {
+}
+
+// Heats a space using pipes or cables embedded beneath floor.
+RadiantFloor: RadiantEquip {
+  radiantFloor
+  heatingProcess: HeatingProcess?
+}
+
+// Heats a space using exposed pipes or coils.  Hot water and steam
+// radiators are often cast iron and installed directly in the space
+// or along the baseboard.  Electric radiators are typically installed
+// on the baseboard.
+Radiator: RadiantEquip {
+  radiator
+  heatingProcess: HeatingProcess?
+}
+
+// Roof Top Unit: A unitary AHU that is weatherized for outdoor use.
+// See [ph.doc::AHUs] chapter.
+Rtu: Ahu {
+  rtu
+}
+
+// Boiler which outputs steam
+SteamBoiler: Boiler {
+  steam
+}
+
+// Plant used to generate steam for heating.
+// See [ph.doc::Plants].
+SteamPlant: Plant {
+  steam
+}
+
+// Tank used to store a substance for temporary holding
+Tank: Equip {
+  tank
+  tankSubstance: Substance?
+}
+
+// Senses and controls temperature of space in HVAC system.  Thermostats
+// may provide an interface for setpoint control.
+Thermostat: Equip {
+  thermostat
+}
+
+// Unit Ventilator: An FCU that has direct access to outside air to provide
+// the space with ventilation.  See [ph.doc::AHUs] chapter.
+UnitVent: Fcu {
+  unitVent
+}
+
+// Uninterruptible power supply
+Ups: Equip {
+  ups
+}
+
+// Equipment to regulate the flow of fluid in piping.  Valves may be
+// manually operated, self-actuated, or automated via an actuator.
+// Non-actuated valves such as manual isolation valves, check valves,
+// pressure-reducing valves, and thermostatic mixing valves use this
+// spec directly.  BAS-controlled valves use ValveActuator.
+Valve: Equip <abstract> {
+  valve
+  pipeFluid:   Fluid?
+  pipeSection: PipeSection?
+}
+
+// Actuator to regulate the flow of fluid.
+ValveActuator: Actuator & Valve {
+}
+
+// Variable air volume terminal unit.  VAV systems use a constant air
+// temperature with a variable air flow rate.  See [ph.doc::VAVs] chapter.
+Vav: AirTerminalUnit {
+  vav
+  heatingProcess: HeatingProcess?
+  vavAirCircuit:  VavAirCircuit?
+  vavModulation:  VavModulation?
+}
+
+// Equipment to move humans and materials
+VerticalTransport: Equip <abstract> {
+}
+
+// Equipment used in VRF systems.  See [ph.doc::VRF#vrf-equipment] chapter.
+VrfEquip: Equip {
+  vrf
+}
+
+// Indoor unit in a VRF system.  Indoor units operate to satisfy a heating
+// or cooling load. See [ph.doc::VRF#indoor-units] chapter.
+VrfIndoorUnit: VrfEquip {
+  indoorUnit
+}
+
+// Indoor unit fan coil unit in a VRF system.  This includes but is not
+// limited to: ducted-type and non-ducted types such as wall-mount,
+// floor-mount, ceiling-mount and cassettes.  Indoor unit fan coils operate
+// to satisfy a heating  or cooling load in a zone based on a zone thermostat
+// temperature set point.
+VrfIndoorUnitFcu: VrfIndoorUnit {
+}
+
+// Outdoor unit with one or more compressors in a VRF system. As each indoor
+// unit sends a demand to the outdoor unit, outdoor unit delivers the amount
+// of refrigerant needed to meet the individual requirements of each indoor
+// unit.  See [ph.doc::VRF#outdoor-units] chapter.
+VrfOutdoorUnit: VrfEquip {
+  outdoorUnit
+}
+
+// Group of outdoor units in a VRF system.  See [ph.doc::VRF#refrigerant-plant].
+VrfRefrigPlant: Plant {
+  vrf
+  refrig
+}
+
+// A well is a source of groundwater and potentially thermal energy.  When
+// used within an [ATES](ph.doc::ATES) system, the well facilitates thermal
+// energy exchange with the ground warm and cool water sources. In this case, a
+// well can be either a closed system that transports water through pipes in the
+// ground, or an open system that pumps up and returns ground water.
+Well: Equip {
+  well
+}
+
+// Cabling used to convey electricity or data
+Wire: Conduit {
+  wire
+}
+

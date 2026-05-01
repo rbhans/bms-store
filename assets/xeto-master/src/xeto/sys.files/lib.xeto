@@ -1,0 +1,26 @@
+//
+// Copyright (c) 2023, Project-Haystack
+// Licensed under the Academic Free License version 3.0
+//
+// History:
+//   12 May 2023  Brian Frank  Creation
+//
+
+pragma: Lib <
+  doc: "System library for MIME typed file specs"
+  version: BuildVar "ph.version"
+  depends: {
+    { lib: "sys", versions: BuildVar "ph.depend" }
+  }
+  categories: {"sys"}
+  license: BuildVar "ph.license"
+  org: {
+   dis: BuildVar "ph.org.dis"
+   uri: BuildVar "ph.org.uri"
+  }
+  vcs: {
+    type: BuildVar "ph.vcs.type"
+    uri:  BuildVar "ph.vcs.uri"
+  }
+>
+

@@ -1,0 +1,28 @@
+//
+// Copyright (c) 2024, Project-Haystack
+// Licensed under the Academic Free License version 3.0
+//
+// History:
+//   3 Nov 2024  Rick Jennings  Creation
+//
+
+pragma: Lib <
+  doc: "Project haystack advanced electrical points"
+  version: BuildVar "ph.version"
+  depends: {
+    { lib: "sys", versions: BuildVar "ph.depend" }
+    { lib: "ph",  versions: BuildVar "ph.depend" }
+    { lib: "ph.points",  versions: BuildVar "ph.depend" }
+  }
+  categories: {"ph", "elec"}
+  license: BuildVar "ph.license"
+  org: {
+   dis: BuildVar "ph.org.dis"
+   uri: BuildVar "ph.org.uri"
+  }
+  vcs: {
+    type: BuildVar "ph.vcs.type"
+    uri:  BuildVar "ph.vcs.uri"
+  }
+>
+

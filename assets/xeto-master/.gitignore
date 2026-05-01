@@ -1,0 +1,10 @@
+# ignore files
+
+Thumbs.db
+.DS_Store
+fan.props
+
+/lib/
+
+/src/xeto/acme/
+

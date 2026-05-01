@@ -1,0 +1,109 @@
+//
+// Copyright (c) 2022, Project-Haystack
+// Licensed under the Academic Free License version 3.0
+//
+// History:
+//   18 Jul 2022  Brian Frank  Creation
+//
+
+// Library module meta data
+Lib: Dict <sealed> {
+
+//////////////////////////////////////////////////////////////////////////
+// Reserved
+//////////////////////////////////////////////////////////////////////////
+
+  // Identifier of the lib formatted as "lib:name"
+  id: Ref <sealed>
+
+  // Dotted name of the library
+  name: Str <sealed>
+
+  // Spec reference - always `sys::Lib`
+  spec: Ref <of:Spec, sealed>
+
+  // Top-level type and mixin specs
+  specs: Dict <of:Spec, sealed>
+
+  // Top-level type specs
+  types: Dict <of:Spec, sealed>
+
+  // Top-level mixin specs
+  mixins: Dict <of:Spec, sealed>
+
+  // Top-level instances
+  instances: Dict <of:Dict, sealed>
+
+  // File location of the lib pragma definition
+  loc: Obj <sealed, nodoc>
+
+//////////////////////////////////////////////////////////////////////////
+// Non-Reserved
+//////////////////////////////////////////////////////////////////////////
+
+  // Free form category tags
+  categories: List? <of:Str>
+
+  // Summary description
+  doc: Str?
+
+  // Library dependencies
+  depends: List <of:LibDepend>
+
+  // License [SPDX name](https://spdx.org/licenses/) or "commerical"
+  license: Str?
+
+  // Marks library as undocumented
+  nodoc: Marker?
+
+  // Library organization information
+  org: LibOrg?
+
+  // Library version control system metadata
+  vcs: LibVcs?
+
+  // Version number
+  version: Version
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Helper Types
+//////////////////////////////////////////////////////////////////////////
+
+// Library dependency
+LibDepend: Dict <sealed> {
+  lib: Str                      // Library qualified dotted name
+  versions: LibDependVersions   // Version constraints for dependency
+}
+
+// Version constraints for a library dependency.
+//
+// The format is:
+// ```
+// <versions>  :=  <wildcard> | <range>
+// <wildcard>  :=  <seg> "." <seg> "." <seg>
+// <range>     :=  <wildcard> "-" <wildcard>
+// <seg>       :=  <digits> | "x"
+// ```
+//
+// Examples:
+// ```
+// 1.5.20           // match only 1.5.20
+// 1.5.x            // match any patch version within 1.5
+// 3.x.x            // match any version with 3 as major version
+// 1.5.20 - 1.x.x   // greater than 1.5.20 and has 1 in major ver
+// ```
+LibDependVersions: Scalar <sealed>
+
+// Organization library metadata
+LibOrg: Dict {
+  dis: Str     // Display name for the organization
+  uri: Uri     // URI for organization website
+}
+
+// Version control library metadata
+LibVcs: Dict {
+  type: Str    // Type of VCS such as "git" or "mercurial"
+  uri: Uri     // URI for repository to be used directly by a VCS program (not the HTML page)
+}
+
