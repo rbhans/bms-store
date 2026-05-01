@@ -16,6 +16,7 @@ pub mod mqtt;
 pub mod node;
 pub mod project;
 pub mod protocol;
+pub mod quality;
 pub mod store;
 pub mod webhook;
 

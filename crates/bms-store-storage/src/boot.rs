@@ -7,6 +7,7 @@ use crate::config::loader::{resolve_scenario, LoadedScenario};
 use crate::config::template::auto_create_nodes;
 use crate::event::bus::EventBus;
 use crate::event::journal::{start_event_journal, start_pruning_task, EventJournal};
+use crate::quality::start_stale_detector;
 use crate::export::publisher::ExportPublisher;
 use crate::health::HealthRegistry;
 use crate::logic::store::{start_program_store_with_path, ProgramStore};
@@ -149,6 +150,14 @@ pub async fn boot_project_with_shutdown(
         &event_bus,
         Some(shutdown.clone()),
         event_journal.as_ref(),
+    );
+
+    // Start quality / freshness detector.
+    start_stale_detector(
+        point_store.clone(),
+        entity_store.clone(),
+        event_bus.clone(),
+        shutdown.clone(),
     );
 
     tracing::info!(
