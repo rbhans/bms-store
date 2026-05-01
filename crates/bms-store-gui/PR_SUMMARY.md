@@ -143,3 +143,43 @@ scoped to the data layer's own UX — no consumer-app concerns were added.
 - `cargo test --workspace` ✅ (209 tests pass)
 - `cargo build --workspace --release` ✅
 - Boot smoke (10 s run against `./demo-data`) — no panic log, clean exit.
+
+---
+
+# v0.4.0 — Commissioning subsystem removed
+
+Follow-up cleanup. The earlier audit miscategorized commissioning as
+"device onboarding" and kept it as data-layer essential. On re-read it
+is clearly a consumer-app workflow: per-device installer sign-off,
+per-point verification status (NotStarted/InProgress/Verified/Failed/
+Deferred), `sign_off_session(device_id, username)`, CSV export of
+installer progress. That's installation project management, not data
+layer.
+
+Same removal pattern as alarms/schedules/reports/etc.
+
+## Removed
+
+- Backend store: `bms-store-storage::store::commissioning_store`
+- GUI components: `commissioning_tab.rs`, `commissioning_overview.rs`
+- Config tab: `ConfigSection::Commissioning`
+- Boot wiring: removed from `boot_project`, `StorageRuntime`,
+  `SharedPlatform`, `AppState`, `SiteContext`
+- Permission: `Permission::ManageCommissioning` from `bms-core::rbac`
+- 5 commissioning-related `AuditAction` variants from `audit_store`
+- `DeviceDetailTab::Commission` from discovery utils + detail pane
+- API route: not present (no `commissioning.rs` in routes)
+
+## Stats (vs gui-v0.3.0)
+
+- **Commits:** 1
+- **Files changed:** 15
+- **LOC:** +1 / −2199 (net −2198)
+- **Tests:** 389 passing
+- **ConfigSection variants:** 14 → 13
+
+## What stayed
+
+- Discovery (find devices) — data-layer, kept
+- Acceptance flow (decide which discovered devices to track) — kept
+- Everything else from v0.3.0
