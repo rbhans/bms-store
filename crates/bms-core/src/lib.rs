@@ -44,7 +44,7 @@ pub mod types;
 
 // Re-export everything at the crate root for convenience
 pub use alarm::*;
-pub use event::*;
+pub use event::{Event, EventBus, EventJournalBackend, EventSeq, QualityReason};
 pub use node::*;
 pub use plugin::*;
 pub use protocol::*;
