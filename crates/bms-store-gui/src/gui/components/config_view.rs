@@ -12,6 +12,7 @@ use bms_store_storage::auth::Permission;
 use bms_store_storage::store::node_store::NodeRecord;
 
 use super::api_keys_view::ApiKeysView;
+use super::coverage_view::CoverageView;
 use super::audit_log_view::AuditLogView;
 use super::backup_view::BackupView;
 use super::discovery_view::DiscoveryView;
@@ -44,6 +45,7 @@ pub enum ConfigSection {
     AuditLog,
     DataExport,
     Atlas,
+    Coverage,
     Health,
     Overrides,
     Backup,
@@ -67,6 +69,7 @@ impl ConfigSection {
             Self::Users => "Users",
             Self::AuditLog => "Audit Log",
             Self::Atlas => "Atlas",
+            Self::Coverage => "Coverage",
             Self::Health => "Health",
             Self::Overrides => "Overrides",
             Self::Backup => "Backup",
@@ -101,6 +104,7 @@ impl ConfigSection {
             sections.push(Self::DataExport);
         }
         sections.push(Self::Atlas);
+        sections.push(Self::Coverage);
         if can_manage_users {
             sections.push(Self::WebServer);
             sections.push(Self::Users);
@@ -219,6 +223,7 @@ pub fn ConfigView() -> Element {
                     ConfigSection::WebServer => rsx! { WebServerSettingsView {} },
                     ConfigSection::AuditLog => rsx! { AuditLogView {} },
                     ConfigSection::Atlas => rsx! { super::atlas_settings::AtlasSettingsView {} },
+                    ConfigSection::Coverage => rsx! { CoverageView {} },
                     ConfigSection::Health => rsx! { HealthView {} },
                     ConfigSection::Overrides => rsx! { OverrideView {} },
                     ConfigSection::Backup => rsx! { BackupView {} },

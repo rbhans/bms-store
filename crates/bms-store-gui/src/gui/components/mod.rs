@@ -10,6 +10,7 @@ pub mod bacnet_network_tools;
 pub mod building_tree;
 pub mod collapsible;
 pub mod config_view;
+pub mod coverage_view;
 pub mod device_tree;
 pub mod discovery_bacnet_ops;
 pub mod discovery_detail;
