@@ -4,6 +4,8 @@ use std::time::Duration;
 use rustbac_client::ClientDataValue;
 use rustbac_core::types::{ObjectId, ObjectType, PropertyId};
 
+use bms_core::QualityReason;
+
 use crate::event::bus::{Event, EventBus};
 
 use super::transport::TransportClient;
@@ -68,6 +70,13 @@ pub(super) async fn run_device_monitor_loop(
                             bridge_type: "bacnet-monitor".into(),
                             device_key: format!("bacnet-{inst}"),
                         });
+                        // Bridge-level quality event for this device recovering
+                        bus.publish(Event::BridgeQualityChanged {
+                            bridge_type: "bacnet".into(),
+                            network_id: network_id.clone(),
+                            reason: QualityReason::Recovered,
+                            affected_device_count: 1,
+                        });
                     }
                     tracing::info!(
                         instance = inst,
@@ -88,6 +97,14 @@ pub(super) async fn run_device_monitor_loop(
                         bus.publish(Event::DeviceDown {
                             bridge_type: "bacnet-monitor".into(),
                             device_key: format!("bacnet-{inst}"),
+                        });
+                        // Bridge-level quality event: one event per device going down
+                        // instead of individual QualityChanged per point.
+                        bus.publish(Event::BridgeQualityChanged {
+                            bridge_type: "bacnet".into(),
+                            network_id: network_id.clone(),
+                            reason: QualityReason::BridgeDown,
+                            affected_device_count: 1,
                         });
                     }
                     tracing::warn!(
