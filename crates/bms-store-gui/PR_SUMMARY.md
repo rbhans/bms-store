@@ -183,3 +183,85 @@ Same removal pattern as alarms/schedules/reports/etc.
 - Discovery (find devices) — data-layer, kept
 - Acceptance flow (decide which discovered devices to track) — kept
 - Everything else from v0.3.0
+
+---
+
+# v0.5.0 — Tier-1 data-layer completion + Tier-2 GUI surfacing
+
+The previous releases trimmed bms-store to a clean data-layer scope and built
+out the standardization UX. v0.5.0 closes the foundational data-layer gaps
+identified in the post-v0.4.0 evaluation, and surfaces the operational backend
+features that previously had no GUI.
+
+## Tier-1: foundational data-layer mechanics (was missing)
+
+### Value / state normalization
+Per-point `ValueMap` translates raw protocol values to canonical tokens
+(`0/1` → `OFF/ON`, `0/1` → `OPEN/CLOSED`, etc.). Stored as JSON in the entity
+`enum` tag. API returns canonical by default; `?raw=true` opts into raw.
+- Editor: per-point + bulk preset application via `BatchTagEditor`.
+- Pre-built presets: ON/OFF, OPEN/CLOSED, OCCUPIED/UNOCCUPIED, AUTO/MANUAL.
+
+### Haystack-filter query API
+Real recursive-descent parser for the Haystack-4 filter grammar subset
+(Has, Cmp ==/!=/<≤>/≥, And, Or, Not, parens, all literal types).
+- New endpoint: `GET /api/entities?filter=<expr>`.
+- Filter input wired into the point table in the desktop GUI.
+
+### Functional relationships
+`supplyRef`, `returnRef`, `connectedTo` (Haystack-4 conventions). Helpers:
+`find_referrers`, `walk_supply_chain`, `walk_return_chain`,
+`validate_relationships`. Cycle-safe walks.
+- Endpoints: `GET /api/entities/<id>/referrers?tag=`, `/supply-chain`,
+  `/return-chain`, `GET /api/relationships/issues`.
+- UI: editor on equip detail; supply-chain breadcrumb on point detail.
+
+### Quality / freshness propagation
+- `Event::QualityChanged { node_id, flags, reason }` and
+  `Event::BridgeQualityChanged { bridge_type, network_id, reason, ... }`
+  added to `bms-core`.
+- `QualityReason`: Stale, BridgeDown, Recovered, ManualOverride, OutOfService.
+- Stale detector background task: 60 s sweep, edge-triggered, per-point
+  `updateRate` tag, graceful shutdown via CancellationToken.
+- Bridge-down emits one bulk event per device transition (not per point).
+- Live quality badges on point detail subscribe to the event stream.
+
+## Tag coverage report
+- New Config tab: `Coverage`. Project-wide score, per-equipment-type breakdown,
+  validation issues breakdown.
+- Coverage scoring: 0 / 50 / 75 / 100 % based on tag presence + validation pass.
+
+## Tier-2: GUI surfacing of existing backend features
+- **Health dashboard** — bridges/stores/background tasks status (auto-refresh 5s).
+- **Override management** — list active overrides, per-row Release, Release All.
+- **Backup / restore** — Create Backup, list snapshots, Restore (destructive
+  confirmation modal).
+- **Retention config** — informational view of the hot/warm/cold/archive tiers
+  (currently fixed in source; runtime config is a follow-up).
+- **API keys** — CRUD view, create-shows-secret-once modal.
+
+## Stats (vs gui-v0.4.0)
+
+- Commits: 16
+- Files changed: 32
+- LOC: +5349 / −33
+- Tests: 458 passing (up from ~389)
+- Config tabs: 13 → 19
+
+## Known follow-ups
+
+- `fetch_update_rate` in stale detector currently returns the default poll
+  interval; should batch-load `updateRate` tags at sweep start
+  (`bms-store-storage/src/quality/stale_detector.rs`).
+- Retention tier windows are compile-time constants; runtime config UI is
+  informational only. Persistable config is a follow-up.
+- Auto-tag heuristic engine still flagged for full redesign (see
+  `crates/bms-store-bridges/src/haystack/auto_tag.rs` doc block).
+- Niagara connector still deferred.
+
+## Verification
+
+- `cargo test --workspace` ✅
+- `cargo build --workspace --release` ✅
+- Boot smoke against `./demo-data`: storage + bridges + stale-detector all
+  start cleanly within 2s; no panic log written.
