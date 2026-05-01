@@ -31,7 +31,6 @@ pub(crate) enum DiscoveryTab {
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum DeviceDetailTab {
     Overview,
-    Commission,
     BacnetManagement,
     BacnetAlarms,
     BacnetTrends,
@@ -46,7 +45,6 @@ impl DeviceDetailTab {
     pub fn label(self) -> &'static str {
         match self {
             Self::Overview => "Overview",
-            Self::Commission => "Commission",
             Self::BacnetManagement => "Manage",
             Self::BacnetAlarms => "Alarms",
             Self::BacnetTrends => "Trends",
@@ -64,7 +62,7 @@ pub(crate) fn tabs_for_device(protocol: &str, state: DeviceState) -> Vec<DeviceD
     if state != DeviceState::Accepted {
         return vec![DeviceDetailTab::Overview];
     }
-    let mut tabs = vec![DeviceDetailTab::Overview, DeviceDetailTab::Commission];
+    let mut tabs = vec![DeviceDetailTab::Overview];
     match protocol {
         "bacnet" => tabs.extend([
             DeviceDetailTab::BacnetManagement,

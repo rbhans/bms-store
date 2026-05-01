@@ -14,7 +14,6 @@ use bms_store_storage::logic::store::ProgramStore;
 use bms_store_bridges::plugin::{BridgeRegistry, ProtocolBridgeHandle};
 use bms_store_storage::project::{ProjectMeta, ProjectPaths};
 use bms_store_storage::store::audit_store::{AuditEntryBuilder, AuditStore};
-use bms_store_storage::store::commissioning_store::CommissioningStore;
 use bms_store_storage::store::discovery_store::DiscoveryStore;
 use bms_store_storage::store::entity_store::EntityStore;
 use bms_store_storage::store::history_store::HistoryStore;
@@ -247,8 +246,6 @@ pub struct AppState {
     pub program_store: ProgramStore,
     /// MQTT config store for broker connections and topic patterns.
     pub mqtt_store: MqttStore,
-    /// Commissioning store for device verification checklists.
-    pub commissioning_store: CommissioningStore,
     /// Webhook subscription store for endpoint configs and delivery log.
     pub webhook_store: WebhookStore,
     /// Export store for database export connector configuration.

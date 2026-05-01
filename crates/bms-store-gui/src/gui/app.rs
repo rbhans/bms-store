@@ -255,7 +255,6 @@ pub(crate) fn ProjectApp(
     let bridge_registry = plat.bridge_registry.clone();
     let program_store = plat.program_store.clone();
     let mqtt_store = plat.mqtt_store.clone();
-    let commissioning_store = plat.commissioning_store.clone();
     let webhook_store = plat.webhook_store.clone();
     let export_store = plat.export_store.clone();
     let naming_rule_store = plat.naming_rule_store.clone();
@@ -381,7 +380,6 @@ pub(crate) fn ProjectApp(
         bridge_registry: bridge_registry.clone(),
         program_store: program_store.clone(),
         mqtt_store: mqtt_store.clone(),
-        commissioning_store: commissioning_store.clone(),
         webhook_store: webhook_store.clone(),
         export_store: export_store.clone(),
         health: plat.health.clone(),

@@ -7,8 +7,6 @@ pub mod bacnet_device_trends;
 pub mod bacnet_network_tools;
 pub mod building_tree;
 pub mod collapsible;
-pub mod commissioning_overview;
-pub mod commissioning_tab;
 pub mod config_view;
 pub mod device_tree;
 pub mod discovery_bacnet_ops;

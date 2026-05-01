@@ -793,11 +793,6 @@ pub(crate) fn render_device_detail(
                             }
                         }
                     },
-                    DeviceDetailTab::Commission => rsx! {
-                        super::commissioning_tab::CommissioningTab {
-                            device_id: detail_dev_id.clone().unwrap_or_default(),
-                        }
-                    },
                     DeviceDetailTab::BacnetManagement if is_bacnet_accepted => rsx! {
                         { render_bacnet_management(state, &detail_dev_id, event_infos, trend_logs) }
                     },

@@ -13,7 +13,6 @@ use crate::logic::store::{start_program_store_with_path, ProgramStore};
 use crate::mqtt::publisher::MqttPublisher;
 use crate::project::{load_project_meta, ProjectPaths};
 use crate::store::audit_store::{start_audit_store_with_path, AuditStore};
-use crate::store::commissioning_store::{start_commissioning_store_with_path, CommissioningStore};
 use crate::store::naming_rule_store::{start_naming_rule_store_with_path, NamingRuleStore};
 use crate::store::discovery_store::{
     start_conn_status_listener, start_discovery_store_with_path, DiscoveryStore,
@@ -46,7 +45,6 @@ pub struct StorageRuntime {
     pub discovery_store: DiscoveryStore,
     pub program_store: ProgramStore,
     pub mqtt_store: MqttStore,
-    pub commissioning_store: CommissioningStore,
     pub webhook_store: WebhookStore,
     pub export_store: ExportStore,
     pub audit_store: AuditStore,
@@ -127,8 +125,6 @@ pub async fn boot_project_with_shutdown(
 
     let program_store = start_program_store_with_path(&paths.db_path("programs.db"));
     let mqtt_store = start_mqtt_store_with_path(&paths.db_path("mqtt.db"));
-    let commissioning_store =
-        start_commissioning_store_with_path(&paths.db_path("commissioning.db"));
     let webhook_store = start_webhook_store_with_path(&paths.db_path("webhooks.db"));
     let export_store = start_export_store_with_path(&paths.db_path("export.db"));
     let audit_store = start_audit_store_with_path(&paths.db_path("audit.db"));
@@ -173,7 +169,6 @@ pub async fn boot_project_with_shutdown(
         discovery_store,
         program_store,
         mqtt_store,
-        commissioning_store,
         webhook_store,
         export_store,
         audit_store,

@@ -34,7 +34,6 @@ pub enum ConfigSection {
     Appearance,
     Mqtt,
     Webhooks,
-    Commissioning,
     WebServer,
     Users,
     AuditLog,
@@ -53,7 +52,6 @@ impl ConfigSection {
             Self::Appearance => "Appearance",
             Self::Mqtt => "MQTT",
             Self::Webhooks => "Webhooks",
-            Self::Commissioning => "Commissioning",
             Self::DataExport => "Data Export",
             Self::WebServer => "Web Server",
             Self::Users => "Users",
@@ -67,7 +65,6 @@ impl ConfigSection {
         can_manage_users: bool,
         can_manage_mqtt: bool,
         can_manage_webhooks: bool,
-        can_manage_commissioning: bool,
         can_manage_export: bool,
         can_view_audit: bool,
     ) -> Vec<ConfigSection> {
@@ -84,9 +81,6 @@ impl ConfigSection {
         }
         if can_manage_webhooks {
             sections.push(Self::Webhooks);
-        }
-        if can_manage_commissioning {
-            sections.push(Self::Commissioning);
         }
         if can_manage_export {
             sections.push(Self::DataExport);
@@ -113,14 +107,12 @@ pub fn ConfigView() -> Element {
     let can_manage_users = state.has_permission(Permission::ManageUsers);
     let can_manage_mqtt = state.has_permission(Permission::ManageMqtt);
     let can_manage_webhooks = state.has_permission(Permission::ManageWebhooks);
-    let can_manage_commissioning = state.has_permission(Permission::ManageCommissioning);
     let can_manage_export = state.has_permission(Permission::ManageExport);
     let can_view_audit = state.has_permission(Permission::ViewAudit);
     let all_sections = ConfigSection::visible_sections(
         can_manage_users,
         can_manage_mqtt,
         can_manage_webhooks,
-        can_manage_commissioning,
         can_manage_export,
         can_view_audit,
     );
@@ -202,7 +194,6 @@ pub fn ConfigView() -> Element {
                     ConfigSection::Appearance => rsx! { ThemeSettingsView {} },
                     ConfigSection::Mqtt => rsx! { super::mqtt_settings::MqttSettingsView {} },
                     ConfigSection::Webhooks => rsx! { super::webhook_settings::WebhookSettingsView {} },
-                    ConfigSection::Commissioning => rsx! { super::commissioning_overview::CommissioningOverview {} },
                     ConfigSection::DataExport => rsx! { super::export_settings::ExportSettingsView {} },
                     ConfigSection::WebServer => rsx! { WebServerSettingsView {} },
                     ConfigSection::AuditLog => rsx! { AuditLogView {} },
