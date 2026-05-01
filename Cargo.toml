@@ -3,6 +3,7 @@ members = [
     ".",
     "crates/bms-core",
     "crates/bms-store-domain",
+    "crates/bms-haystack",
     "crates/bms-store-storage",
     "crates/bms-store-bridges",
     "crates/bms-store-server",

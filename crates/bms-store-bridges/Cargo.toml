@@ -7,6 +7,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 bms-core = { path = "../bms-core" }
+bms-haystack = { path = "../bms-haystack" }
 bms-store-domain = { path = "../bms-store-domain" }
 bms-store-storage = { path = "../bms-store-storage" }
 serde = { version = "1", features = ["derive"] }

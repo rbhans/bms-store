@@ -9,9 +9,12 @@ license = "MIT OR Apache-2.0"
 axum = { version = "0.8", features = ["ws"] }
 axum-server = { version = "0.7", features = ["tls-rustls"] }
 bms-core = { path = "../bms-core" }
+bms-haystack = { path = "../bms-haystack", features = ["server"] }
 bms-store-bridges = { path = "../bms-store-bridges" }
 bms-store-domain = { path = "../bms-store-domain" }
 bms-store-storage = { path = "../bms-store-storage" }
+async-trait = "0.1"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 jsonwebtoken = "9"
 rand = "0.8"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }

@@ -18,7 +18,7 @@ use crate::discovery::model::PointKindHint;
 use crate::discovery::model::{ConnStatus, DeviceState};
 use crate::event::bus::{Event, EventBus};
 use crate::haystack::auto_tag::{suggest_equip_tags, suggest_point_tags_multi};
-use crate::haystack::provider::Haystack4Provider;
+use crate::haystack::provider::Haystack5Provider;
 use crate::node::{Node, NodeCapabilities, NodeType};
 use crate::store::discovery_store::DiscoveryStore;
 use crate::store::entity_store::EntityStore;
@@ -422,7 +422,7 @@ impl DiscoveryService {
         }
 
         let points = self.store.get_points(device_id).await;
-        let provider = Haystack4Provider;
+        let provider = Haystack5Provider;
 
         // 1. Auto-group: compute kind-based fingerprint and create/reuse a group node
         let fingerprint = point_kind_fingerprint(&points);
