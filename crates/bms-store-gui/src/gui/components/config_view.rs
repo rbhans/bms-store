@@ -6,6 +6,7 @@ use crate::gui::state::AppState;
 use bms_store_bridges::haystack::prototypes::{EQUIP_PROTOTYPES, POINT_PROTOTYPES};
 use bms_store_bridges::haystack::tags::{self, TagKind};
 use bms_store_bridges::haystack::validation::{validate_tags, Severity, ValidationIssue};
+use bms_store_bridges::normalize::value_map::BoolMap;
 use bms_store_storage::store::entity_store::Entity;
 
 use bms_store_storage::auth::Permission;
@@ -1327,6 +1328,12 @@ fn BatchTagEditor(batch_selected: Signal<HashSet<String>>, entity_version: Signa
 
             // Assign to Equipment / Space
             BatchAssignRef {
+                selected_ids: selected.iter().cloned().collect(),
+                entities: entities.to_vec(),
+            }
+
+            // Apply Value Mapping preset to batch
+            BatchValueMapping {
                 selected_ids: selected.iter().cloned().collect(),
                 entities: entities.to_vec(),
             }
@@ -2976,6 +2983,128 @@ fn BulkRefForm(
                     class: "rel-action-btn",
                     onclick: move |_| on_close.call(()),
                     "Cancel"
+                }
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------
+// Batch Value Mapping — apply a preset ValueMap to all selected points
+// ----------------------------------------------------------------
+
+#[component]
+fn BatchValueMapping(selected_ids: Vec<String>, entities: Vec<Entity>) -> Element {
+    let state = use_context::<AppState>();
+    let count = selected_ids.len();
+
+    let mut pending_preset: Signal<Option<&'static str>> = use_signal(|| None);
+
+    rsx! {
+        div { class: "config-add-tag-section",
+            h4 { class: "config-section-title", "Apply Value Mapping" }
+            p { class: "config-hint",
+                "Selecting a preset REPLACES any existing enum mapping on the selected entities."
+            }
+            div { class: "vm-presets",
+                select {
+                    class: "config-input vm-preset-select",
+                    value: "",
+                    onchange: move |evt| {
+                        let v = evt.value();
+                        let key: Option<&'static str> = match v.as_str() {
+                            "on_off" => Some("on_off"),
+                            "open_closed" => Some("open_closed"),
+                            "occ_unocc" => Some("occ_unocc"),
+                            "auto_manual" => Some("auto_manual"),
+                            "clear" => Some("clear"),
+                            _ => None,
+                        };
+                        pending_preset.set(key);
+                    },
+                    option { value: "", "Choose preset..." }
+                    option { value: "on_off", "Apply ON/OFF" }
+                    option { value: "open_closed", "Apply OPEN/CLOSED" }
+                    option { value: "occ_unocc", "Apply OCCUPIED/UNOCCUPIED" }
+                    option { value: "auto_manual", "Apply AUTO/MANUAL" }
+                    option { value: "clear", "Clear mapping" }
+                }
+            }
+
+            if let Some(preset_key) = *pending_preset.read() {
+                {
+                    let vm_opt = match preset_key {
+                        "on_off" => Some(BoolMap::on_off()),
+                        "open_closed" => Some(BoolMap::open_closed()),
+                        "occ_unocc" => Some(BoolMap::occupied_unoccupied()),
+                        "auto_manual" => Some(BoolMap::auto_manual()),
+                        _ => None,
+                    };
+                    let new_json = vm_opt.as_ref().map(|vm| vm.to_json());
+                    let replace_count = entities.iter().filter(|e| e.tags.contains_key("enum")).count();
+                    let preset_label = match preset_key {
+                        "on_off" => "Apply ON/OFF",
+                        "open_closed" => "Apply OPEN/CLOSED",
+                        "occ_unocc" => "Apply OCCUPIED/UNOCCUPIED",
+                        "auto_manual" => "Apply AUTO/MANUAL",
+                        _ => "Clear mapping",
+                    };
+
+                    let preview_rows: Vec<PreviewRow> = entities
+                        .iter()
+                        .map(|e| {
+                            let before = e.tags.get("enum")
+                                .and_then(|v| v.clone())
+                                .unwrap_or_else(|| "(none)".to_string());
+                            let after = new_json.clone().unwrap_or_else(|| "(cleared)".to_string());
+                            let change_kind = if e.tags.contains_key("enum") {
+                                if vm_opt.is_none() { ChangeKind::Remove } else { ChangeKind::Modify }
+                            } else if vm_opt.is_some() {
+                                ChangeKind::Add
+                            } else {
+                                ChangeKind::NoOp
+                            };
+                            PreviewRow {
+                                id: e.id.clone(),
+                                label: if e.dis.is_empty() { e.id.clone() } else { e.dis.clone() },
+                                before,
+                                after,
+                                change_kind,
+                            }
+                        })
+                        .collect();
+
+                    let title = format!(
+                        "Apply '{}' to {} items ({} will be replaced)",
+                        preset_label, count, replace_count,
+                    );
+
+                    let es_apply = state.entity_store.clone();
+                    let ids_apply = selected_ids.clone();
+                    let new_json_apply = new_json.clone();
+
+                    rsx! {
+                        PreviewModal {
+                            title,
+                            rows: preview_rows,
+                            on_confirm: move |_| {
+                                let store = es_apply.clone();
+                                let ids = ids_apply.clone();
+                                let json = new_json_apply.clone();
+                                spawn(async move {
+                                    for id in &ids {
+                                        if let Some(ref j) = json {
+                                            let _ = store.set_tag(id, "enum", Some(j)).await;
+                                        } else {
+                                            let _ = store.remove_tag(id, "enum").await;
+                                        }
+                                    }
+                                });
+                                pending_preset.set(None);
+                            },
+                            on_cancel: move |_| pending_preset.set(None),
+                        }
+                    }
                 }
             }
         }
