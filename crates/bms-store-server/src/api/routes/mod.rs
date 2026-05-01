@@ -1,5 +1,6 @@
 pub mod audit;
 pub mod discovery;
+pub mod entities;
 pub mod export;
 pub mod history;
 pub mod nodes;
@@ -80,6 +81,13 @@ pub fn build_router(state: ApiState) -> Router {
 
     let api = Router::new()
         .nest("/auth", auth_routes)
+        // Entities (Haystack filter API + relationship traversal)
+        .route("/entities", get(entities::list_entities))
+        .route("/entities/{id}", get(entities::get_entity))
+        .route("/entities/{id}/referrers", get(entities::get_referrers))
+        .route("/entities/{id}/supply-chain", get(entities::get_supply_chain))
+        .route("/entities/{id}/return-chain", get(entities::get_return_chain))
+        .route("/relationships/issues", get(entities::get_relationship_issues))
         // Points
         .route("/points", get(points::list_points))
         .route("/points/{device_id}", get(points::device_points))

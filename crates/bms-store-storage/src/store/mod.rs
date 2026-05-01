@@ -9,5 +9,6 @@ pub mod naming_rule_store;
 pub mod node_store;
 pub mod override_store;
 pub mod point_store;
+pub mod relationships;
 pub mod user_store;
 pub mod webhook_store;
