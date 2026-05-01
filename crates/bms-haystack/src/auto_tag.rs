@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::haystack::provider::TagProvider;
+use crate::ontology::TagProvider;
 
 /// Given a point name/id and its parent equipment type, suggest tags.
 pub fn suggest_point_tags(
@@ -353,7 +353,7 @@ pub fn suggest_equip_tags(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::haystack::provider::Haystack4Provider;
+    use crate::ontology::Haystack4Provider;
 
     fn tag_names(tags: &[(String, Option<String>)]) -> Vec<String> {
         tags.iter().map(|(n, _)| n.clone()).collect()
