@@ -17,6 +17,11 @@ pub use bms_core::PointStatusFlags;
 #[derive(Debug, Clone)]
 pub struct TimestampedValue {
     pub value: PointValue,
+    /// Canonical string produced by a per-point ValueMap (e.g. "OFF", "ON").
+    /// `None` when no enum tag is present on the entity or the raw value has
+    /// no entry in the map.  Always populated by the bridge layer; cleared if
+    /// the enum tag is removed.
+    pub canonical_value: Option<String>,
     pub timestamp: Instant,
     pub status: PointStatusFlags,
 }
@@ -65,11 +70,47 @@ impl PointStore {
     pub fn set(&self, key: PointKey, value: PointValue) {
         let _ = self.history_tx.send((key.clone(), value.clone()));
         let mut data = self.data.write().unwrap_or_else(|e| e.into_inner());
+        let existing = data.get(&key);
+        let existing_status = existing.map(|tv| tv.status).unwrap_or_default();
+        let existing_canonical = existing.and_then(|tv| tv.canonical_value.clone());
+        data.insert(
+            key.clone(),
+            TimestampedValue {
+                value: value.clone(),
+                canonical_value: existing_canonical,
+                timestamp: Instant::now(),
+                status: existing_status,
+            },
+        );
+        drop(data);
+        self.version_tx.send_modify(|v| *v += 1);
+
+        if let Some(ref bus) = self.event_bus {
+            let now_ms = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as i64;
+            bus.publish(Event::ValueChanged {
+                node_id: format!("{}/{}", key.device_instance_id, key.point_id),
+                value,
+                timestamp_ms: now_ms,
+            });
+        }
+    }
+
+    /// Like `set`, but also stores a pre-computed canonical string alongside the
+    /// raw value.  Used by bridges that apply a per-point [`ValueMap`].
+    ///
+    /// The canonical value is returned by API handlers when `?raw=true` is NOT set.
+    pub fn set_with_canonical(&self, key: PointKey, value: PointValue, canonical: Option<String>) {
+        let _ = self.history_tx.send((key.clone(), value.clone()));
+        let mut data = self.data.write().unwrap_or_else(|e| e.into_inner());
         let existing_status = data.get(&key).map(|tv| tv.status).unwrap_or_default();
         data.insert(
             key.clone(),
             TimestampedValue {
                 value: value.clone(),
+                canonical_value: canonical,
                 timestamp: Instant::now(),
                 status: existing_status,
             },
@@ -95,18 +136,22 @@ impl PointStore {
     pub fn set_if_changed(&self, key: PointKey, value: PointValue) {
         let mut data = self.data.write().unwrap_or_else(|e| e.into_inner());
         let existing_status;
+        let existing_canonical;
         if let Some(existing) = data.get(&key) {
             if existing.value == value {
                 return;
             }
             existing_status = existing.status;
+            existing_canonical = existing.canonical_value.clone();
         } else {
             existing_status = PointStatusFlags::default();
+            existing_canonical = None;
         }
         data.insert(
             key.clone(),
             TimestampedValue {
                 value: value.clone(),
+                canonical_value: existing_canonical,
                 timestamp: Instant::now(),
                 status: existing_status,
             },
@@ -151,6 +196,7 @@ impl PointStore {
                 };
                 let ts = TimestampedValue {
                     value: initial.clone(),
+                    canonical_value: None,
                     timestamp: Instant::now(),
                     status: PointStatusFlags::default(),
                 };
@@ -262,6 +308,7 @@ impl PointStore {
         let mut data = self.data.write().unwrap_or_else(|e| e.into_inner());
         data.entry(key).or_insert_with(|| TimestampedValue {
             value,
+            canonical_value: None,
             timestamp: Instant::now(),
             status: PointStatusFlags::default(),
         });
