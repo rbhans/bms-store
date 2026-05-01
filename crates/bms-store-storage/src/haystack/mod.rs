@@ -1,7 +1,10 @@
-//! Re-export shim — the ontology now lives in `bms-haystack`.
+//! Storage-side Haystack helpers.
 //!
-//! `crate::haystack::prototypes::find_equip_prototype` keeps working for
-//! existing storage call sites.
+//! `prototypes` is a re-export shim — the canonical ontology lives in
+//! the `bms-haystack` crate. `filter` is a storage-local filter helper
+//! kept in this crate for now (uses storage's `Entity` type directly).
+
+pub mod filter;
 
 pub mod prototypes {
     pub use bms_haystack::ontology::proto::*;

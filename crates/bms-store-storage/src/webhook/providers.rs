@@ -356,7 +356,9 @@ pub fn format_teams(payload: &WebhookPayload) -> FormattedPayload {
 
 pub fn format_pagerduty(payload: &WebhookPayload, routing_key: &str) -> FormattedPayload {
     let event_action = match payload.event_type {
-        WebhookEventType::AlarmCleared => "resolve",
+        WebhookEventType::AlarmCleared
+        | WebhookEventType::FddFaultCleared
+        | WebhookEventType::DeviceRecovered => "resolve",
         _ => "trigger",
     };
 
@@ -504,6 +506,22 @@ mod tests {
             severity: Some("critical".into()),
             trigger_value: Some(85.2),
             message: Some("Zone Temp exceeded high limit (80.0)".into()),
+            timestamp_ms: 1711200600000,
+            project_name: "Main Campus".into(),
+        }
+    }
+
+    fn sample_fdd_payload() -> WebhookPayload {
+        WebhookPayload {
+            event_type: WebhookEventType::FddFaultRaised,
+            alarm_id: Some(42),
+            node_id: Some("ahu-01".into()),
+            device_id: None,
+            point_id: None,
+            alarm_type: Some("fdd".into()),
+            severity: Some("critical".into()),
+            trigger_value: None,
+            message: Some("FDD fault on equipment ahu-01 (rule #7)".into()),
             timestamp_ms: 1711200600000,
             project_name: "Main Campus".into(),
         }

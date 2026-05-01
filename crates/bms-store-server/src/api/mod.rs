@@ -21,19 +21,14 @@ use bms_store_storage::event::bus::EventBus;
 use bms_store_storage::event::journal::EventJournal;
 use bms_store_storage::health::HealthRegistry;
 use bms_store_storage::logic::store::ProgramStore;
-use bms_store_storage::store::alarm_store::AlarmStore;
 use bms_store_storage::store::audit_store::AuditStore;
 use bms_store_storage::store::discovery_store::DiscoveryStore;
-use bms_store_storage::store::energy_store::EnergyStore;
 use bms_store_storage::store::entity_store::EntityStore;
 use bms_store_storage::store::export_store::ExportStore;
-use bms_store_storage::store::fdd_store::FddStore;
 use bms_store_storage::store::history_store::HistoryStore;
 use bms_store_storage::store::node_store::NodeStore;
 use bms_store_storage::store::override_store::OverrideStore;
 use bms_store_storage::store::point_store::PointStore;
-use bms_store_storage::store::report_store::ReportStore;
-use bms_store_storage::store::schedule_store::ScheduleStore;
 use bms_store_storage::store::user_store::UserStore;
 use bms_store_storage::store::webhook_store::WebhookStore;
 use tokio::sync::Mutex;
@@ -90,8 +85,6 @@ impl LoginRateLimiter {
 pub struct ApiState {
     pub point_store: PointStore,
     pub node_store: NodeStore,
-    pub alarm_store: AlarmStore,
-    pub schedule_store: ScheduleStore,
     pub history_store: HistoryStore,
     pub entity_store: EntityStore,
     pub discovery_store: DiscoveryStore,
@@ -107,13 +100,8 @@ pub struct ApiState {
     pub health: HealthRegistry,
     pub scenario_name: String,
     pub backup_scheduler: Arc<Mutex<BackupScheduler>>,
-    pub report_store: ReportStore,
-    pub energy_store: EnergyStore,
     pub webhook_store: WebhookStore,
-    pub fdd_store: FddStore,
     pub export_store: ExportStore,
-    #[cfg(feature = "cloud")]
-    pub cloud_store: bms_store_storage::store::cloud_store::CloudStore,
     pub api_key_store: Arc<ApiKeyStore>,
     pub login_rate_limiter: LoginRateLimiter,
     pub ws_connections: Arc<Mutex<HashMap<String, usize>>>,
@@ -130,8 +118,6 @@ impl ApiState {
         Self {
             point_store: storage.point_store.clone(),
             node_store: storage.node_store.clone(),
-            alarm_store: storage.alarm_store.clone(),
-            schedule_store: storage.schedule_store.clone(),
             history_store: storage.history_store.clone(),
             entity_store: storage.entity_store.clone(),
             discovery_store: storage.discovery_store.clone(),
@@ -147,13 +133,8 @@ impl ApiState {
             health: storage.health.clone(),
             scenario_name: storage.loaded.config.scenario.name.clone(),
             backup_scheduler: Arc::new(Mutex::new(backup_scheduler)),
-            report_store: storage.report_store.clone(),
-            energy_store: storage.energy_store.clone(),
             webhook_store: storage.webhook_store.clone(),
-            fdd_store: storage.fdd_store.clone(),
             export_store: storage.export_store.clone(),
-            #[cfg(feature = "cloud")]
-            cloud_store: storage.cloud_store.clone(),
             api_key_store: Arc::new(api_key_store),
             login_rate_limiter: LoginRateLimiter::new(),
             ws_connections: Arc::new(Mutex::new(HashMap::new())),

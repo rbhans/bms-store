@@ -6,6 +6,7 @@ use crate::bridge::bacnet::{BacnetDevice, BacnetObject};
 use crate::node::ProtocolBinding;
 
 use super::bacnet_units::bacnet_unit_to_string;
+use super::units::normalize_unit;
 use super::model::{
     ConnStatus, DeviceState, DiscoveredDevice, DiscoveredPoint, PointKindHint, PROTOCOL_BACNET,
 };
@@ -93,7 +94,11 @@ pub fn adapt_bacnet_points_with_network(
         .map(|obj| {
             let point_id = object_point_id(obj);
             let display_name = obj.object_name.clone().unwrap_or_else(|| point_id.clone());
-            let units = obj.units.and_then(bacnet_unit_to_string).map(String::from);
+            let units = obj
+                .units
+                .and_then(bacnet_unit_to_string)
+                .map(|u| normalize_unit(u))
+                .filter(|u| !u.is_empty());
             let point_kind = classify_object_type(obj.object_id.object_type());
             let obj_type_str = format!("{}", obj.object_id.object_type());
 

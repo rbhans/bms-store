@@ -62,8 +62,6 @@ pub struct RolePermissions {
     #[serde(default)]
     pub manage_mqtt: bool,
     #[serde(default)]
-    pub manage_commissioning: bool,
-    #[serde(default)]
     pub manage_reports: bool,
     #[serde(default)]
     pub manage_energy: bool,
@@ -98,7 +96,6 @@ impl RolePermissions {
                 manage_users: true,
                 manage_notifications: true,
                 manage_mqtt: true,
-                manage_commissioning: true,
                 manage_reports: true,
                 manage_energy: true,
                 manage_webhooks: true,
@@ -118,7 +115,6 @@ impl RolePermissions {
                 manage_users: false,
                 manage_notifications: false,
                 manage_mqtt: false,
-                manage_commissioning: true,
                 manage_reports: true,
                 manage_energy: true,
                 manage_webhooks: false,
@@ -138,7 +134,6 @@ impl RolePermissions {
                 manage_users: false,
                 manage_notifications: false,
                 manage_mqtt: false,
-                manage_commissioning: false,
                 manage_reports: false,
                 manage_energy: false,
                 manage_webhooks: false,
@@ -162,7 +157,6 @@ impl RolePermissions {
             Permission::ManageUsers => self.manage_users,
             Permission::ManageNotifications => self.manage_notifications,
             Permission::ManageMqtt => self.manage_mqtt,
-            Permission::ManageCommissioning => self.manage_commissioning,
             Permission::ManageReports => self.manage_reports,
             Permission::ManageEnergy => self.manage_energy,
             Permission::ManageWebhooks => self.manage_webhooks,
@@ -185,7 +179,6 @@ impl RolePermissions {
             Permission::ManageUsers => self.manage_users = value,
             Permission::ManageNotifications => self.manage_notifications = value,
             Permission::ManageMqtt => self.manage_mqtt = value,
-            Permission::ManageCommissioning => self.manage_commissioning = value,
             Permission::ManageReports => self.manage_reports = value,
             Permission::ManageEnergy => self.manage_energy = value,
             Permission::ManageWebhooks => self.manage_webhooks = value,

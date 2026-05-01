@@ -10,6 +10,25 @@ use tokio::sync::broadcast;
 
 use crate::types::PointValue;
 
+// ---------------------------------------------------------------------------
+// Quality types (used by Event::QualityChanged)
+// ---------------------------------------------------------------------------
+
+/// Reason for a quality-change event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum QualityReason {
+    /// Point has not been updated within `expected_poll_interval × N_TOLERANCE`.
+    Stale,
+    /// The owning bridge reported it cannot reach the device/network.
+    BridgeDown,
+    /// Point has returned to normal quality after a Stale or BridgeDown event.
+    Recovered,
+    /// Quality flag set by operator or override logic.
+    ManualOverride,
+    /// Point has been placed out-of-service.
+    OutOfService,
+}
+
 /// Monotonic sequence number for journaled events.
 pub type EventSeq = i64;
 
@@ -26,22 +45,6 @@ pub enum Event {
     StatusChanged {
         node_id: String,
         flags: u8,
-    },
-    AlarmRaised {
-        alarm_id: i64,
-        node_id: String,
-    },
-    AlarmCleared {
-        alarm_id: i64,
-        node_id: String,
-    },
-    AlarmAcknowledged {
-        alarm_id: i64,
-    },
-    ScheduleWritten {
-        assignment_id: i64,
-        node_id: String,
-        value: PointValue,
     },
     EntityCreated {
         entity_id: String,
@@ -96,6 +99,25 @@ pub enum Event {
         rule_id: i64,
         equip_id: String,
     },
+    /// A point's quality flags changed (e.g. became stale, bridge went down, recovered).
+    ///
+    /// Edge-triggered: only emitted when the flags actually change state.
+    QualityChanged {
+        node_id: String,
+        flags: u8,
+        reason: QualityReason,
+    },
+    /// A bridge-level quality event covering all points owned by a bridge/network.
+    ///
+    /// Emitted once when a bridge goes down or recovers, instead of thousands
+    /// of individual QualityChanged events.  Consumers can use this as a
+    /// bulk-invalidation signal.
+    BridgeQualityChanged {
+        bridge_type: String,
+        network_id: String,
+        reason: QualityReason,
+        affected_device_count: usize,
+    },
 }
 
 impl Event {
@@ -104,10 +126,6 @@ impl Event {
         match self {
             Event::ValueChanged { .. } => "ValueChanged",
             Event::StatusChanged { .. } => "StatusChanged",
-            Event::AlarmRaised { .. } => "AlarmRaised",
-            Event::AlarmCleared { .. } => "AlarmCleared",
-            Event::AlarmAcknowledged { .. } => "AlarmAcknowledged",
-            Event::ScheduleWritten { .. } => "ScheduleWritten",
             Event::EntityCreated { .. } => "EntityCreated",
             Event::EntityUpdated { .. } => "EntityUpdated",
             Event::EntityDeleted { .. } => "EntityDeleted",
@@ -120,6 +138,8 @@ impl Event {
             Event::ObjectListChanged { .. } => "ObjectListChanged",
             Event::FddFaultRaised { .. } => "FddFaultRaised",
             Event::FddFaultCleared { .. } => "FddFaultCleared",
+            Event::QualityChanged { .. } => "QualityChanged",
+            Event::BridgeQualityChanged { .. } => "BridgeQualityChanged",
         }
     }
 }

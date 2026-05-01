@@ -6,6 +6,7 @@ pub mod boot;
 pub mod bridge;
 pub mod discovery;
 pub mod haystack;
+pub mod normalize;
 pub mod plugin;
 
 pub mod config {

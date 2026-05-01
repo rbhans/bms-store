@@ -1,0 +1,18 @@
+{
+  "name": "OpenCrate BMS",
+  "short_name": "OpenCrate",
+  "description": "Open-source Building Management System",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#232120",
+  "background_color": "#2B2927",
+  "icons": [
+    {
+      "src": "/assets/opencrate_icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -274,15 +274,15 @@ mod tests {
     #[test]
     fn webhook_event_type_roundtrip() {
         for (s, expected) in [
-            ("alarm_raised", WebhookEventType::AlarmRaised),
-            ("alarm_cleared", WebhookEventType::AlarmCleared),
-            ("alarm_acknowledged", WebhookEventType::AlarmAcknowledged),
             ("device_down", WebhookEventType::DeviceDown),
             ("device_recovered", WebhookEventType::DeviceRecovered),
+            ("fdd_fault_raised", WebhookEventType::FddFaultRaised),
+            ("fdd_fault_cleared", WebhookEventType::FddFaultCleared),
         ] {
             assert_eq!(WebhookEventType::from_str(s), Some(expected));
             assert_eq!(expected.as_str(), s);
         }
+        assert_eq!(WebhookEventType::from_str("unknown"), None);
     }
 
     #[test]
@@ -307,9 +307,6 @@ mod tests {
             created_ms: 0,
             updated_ms: 0,
         };
-        assert!(ep.accepts_event(WebhookEventType::AlarmRaised));
-        assert!(!ep.accepts_event(WebhookEventType::AlarmCleared));
-        assert!(ep.accepts_event(WebhookEventType::AlarmAcknowledged));
         assert!(ep.accepts_event(WebhookEventType::DeviceDown));
         assert!(!ep.accepts_event(WebhookEventType::DeviceRecovered));
         assert!(ep.accepts_event(WebhookEventType::FddFaultRaised));

@@ -10,13 +10,19 @@ use crate::api::ApiState;
 use crate::auth::Permission;
 use crate::config::profile::PointValue;
 use crate::store::audit_store::{AuditAction, AuditEntryBuilder};
-use crate::store::point_store::PointKey;
+use crate::store::point_store::{PointKey, TimestampedValue};
 
 #[derive(Serialize)]
 pub struct PointResponse {
     pub device_id: String,
     pub point_id: String,
+    /// The effective display value: canonical string if a value map is present,
+    /// otherwise the raw numeric/bool value.
     pub value: serde_json::Value,
+    /// Raw numeric/bool value as stored from the protocol.  Always present.
+    pub raw_value: serde_json::Value,
+    /// True when `value` has been mapped through a per-point enum value map.
+    pub value_mapped: bool,
     pub status: Vec<&'static str>,
 }
 
@@ -28,8 +34,32 @@ fn point_value_json(v: &PointValue) -> serde_json::Value {
     }
 }
 
+/// Build a PointResponse from a TimestampedValue, applying canonical mapping
+/// unless `raw` is set.
+fn tv_to_response(device_id: String, point_id: String, tv: &TimestampedValue, raw: bool) -> PointResponse {
+    let raw_value = point_value_json(&tv.value);
+    let (value, value_mapped) = if raw {
+        (raw_value.clone(), false)
+    } else if let Some(ref canonical) = tv.canonical_value {
+        (serde_json::Value::String(canonical.clone()), true)
+    } else {
+        (raw_value.clone(), false)
+    };
+    PointResponse {
+        device_id,
+        point_id,
+        value,
+        raw_value,
+        value_mapped,
+        status: tv.status.active_flags(),
+    }
+}
+
 #[derive(Deserialize)]
 pub struct ListPointsQuery {
+    /// Return raw protocol values instead of canonical mapped values.
+    #[serde(default)]
+    pub raw: bool,
     #[serde(flatten)]
     pub pagination: PaginationParams,
 }
@@ -44,15 +74,22 @@ pub async fn list_points(
     let mut points = Vec::with_capacity(keys.len());
     for key in keys {
         if let Some(tv) = state.point_store.get(&key) {
-            points.push(PointResponse {
-                device_id: key.device_instance_id,
-                point_id: key.point_id,
-                value: point_value_json(&tv.value),
-                status: tv.status.active_flags(),
-            });
+            points.push(tv_to_response(
+                key.device_instance_id,
+                key.point_id,
+                &tv,
+                q.raw,
+            ));
         }
     }
     Json(PaginatedResponse::from_vec(points, &q.pagination))
+}
+
+#[derive(Deserialize)]
+pub struct DevicePointsQuery {
+    /// Return raw protocol values instead of canonical mapped values.
+    #[serde(default)]
+    pub raw: bool,
 }
 
 /// GET /api/points/:device_id — list points for a device
@@ -60,18 +97,23 @@ pub async fn device_points(
     State(state): State<ApiState>,
     _auth: AuthUser,
     Path(device_id): Path<String>,
+    Query(q): Query<DevicePointsQuery>,
 ) -> Json<Vec<PointResponse>> {
     let device_points = state.point_store.get_all_for_device(&device_id);
     let points = device_points
         .into_iter()
-        .map(|(key, tv)| PointResponse {
-            device_id: key.device_instance_id,
-            point_id: key.point_id,
-            value: point_value_json(&tv.value),
-            status: tv.status.active_flags(),
+        .map(|(key, tv)| {
+            tv_to_response(key.device_instance_id, key.point_id, &tv, q.raw)
         })
         .collect();
     Json(points)
+}
+
+#[derive(Deserialize)]
+pub struct GetPointQuery {
+    /// Return raw protocol value instead of canonical mapped value.
+    #[serde(default)]
+    pub raw: bool,
 }
 
 /// GET /api/points/:device_id/:point_id — get a single point
@@ -79,6 +121,7 @@ pub async fn get_point(
     State(state): State<ApiState>,
     _auth: AuthUser,
     Path((device_id, point_id)): Path<(String, String)>,
+    Query(q): Query<GetPointQuery>,
 ) -> Result<Json<PointResponse>, ApiError> {
     let key = PointKey {
         device_instance_id: device_id.clone(),
@@ -88,12 +131,7 @@ pub async fn get_point(
         .point_store
         .get(&key)
         .ok_or_else(|| ApiError::NotFound(format!("point {device_id}/{point_id} not found")))?;
-    Ok(Json(PointResponse {
-        device_id,
-        point_id,
-        value: point_value_json(&tv.value),
-        status: tv.status.active_flags(),
-    }))
+    Ok(Json(tv_to_response(device_id, point_id, &tv, q.raw)))
 }
 
 #[derive(Deserialize)]

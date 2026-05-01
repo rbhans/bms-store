@@ -558,9 +558,8 @@ mod tests {
             value: crate::config::profile::PointValue::Float(72.5),
             timestamp_ms: 1000,
         };
-        let e2 = Event::AlarmRaised {
-            alarm_id: 42,
-            node_id: "vav-1/zat".into(),
+        let e2 = Event::EntityCreated {
+            entity_id: "vav-1".into(),
         };
 
         append_sync(&journal, &e1);
@@ -693,18 +692,15 @@ mod tests {
         let journal_for_site_a = journal.with_site_id("site-a");
         let journal_for_site_b = journal.with_site_id("site-b");
 
-        journal_for_site_a.append(&Event::AlarmRaised {
-            alarm_id: 1,
-            node_id: "a".into(),
+        journal_for_site_a.append(&Event::EntityCreated {
+            entity_id: "a".into(),
         });
-        journal_for_site_b.append(&Event::AlarmRaised {
-            alarm_id: 2,
-            node_id: "b".into(),
+        journal_for_site_b.append(&Event::EntityCreated {
+            entity_id: "b".into(),
         });
         // Also append without a site id via the base handle.
-        journal.append(&Event::AlarmRaised {
-            alarm_id: 3,
-            node_id: "c".into(),
+        journal.append(&Event::EntityCreated {
+            entity_id: "c".into(),
         });
 
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -750,15 +746,6 @@ mod tests {
                 node_id: "n2".into(),
                 flags: 0x0F,
             },
-            Event::AlarmRaised {
-                alarm_id: 1,
-                node_id: "n3".into(),
-            },
-            Event::AlarmCleared {
-                alarm_id: 1,
-                node_id: "n3".into(),
-            },
-            Event::AlarmAcknowledged { alarm_id: 1 },
             Event::DeviceDiscovered {
                 bridge_type: "bacnet".into(),
                 device_key: "d1".into(),

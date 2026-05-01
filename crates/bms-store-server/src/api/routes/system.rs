@@ -46,25 +46,13 @@ pub async fn health(State(state): State<ApiState>) -> Json<HealthResponse> {
         status: if node_ok { "healthy" } else { "down" }.into(),
     });
 
-    // Check alarm store (SQLite)
-    let alarm_ok = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        state.alarm_store.list_configs(),
-    )
-    .await
-    .is_ok();
-    components.push(ComponentHealth {
-        name: "alarm_store".into(),
-        status: if alarm_ok { "healthy" } else { "down" }.into(),
-    });
-
     // Point store (in-memory, always available)
     components.push(ComponentHealth {
         name: "point_store".into(),
         status: "healthy".into(),
     });
 
-    let all_healthy = registry_healthy && node_ok && alarm_ok;
+    let all_healthy = registry_healthy && node_ok;
     Json(HealthResponse {
         status: if all_healthy { "healthy" } else { "degraded" }.to_string(),
         components,

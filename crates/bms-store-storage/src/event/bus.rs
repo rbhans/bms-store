@@ -32,9 +32,8 @@ mod tests {
         let mut rx1 = bus.subscribe();
         let mut rx2 = bus.subscribe();
 
-        bus.publish(Event::AlarmRaised {
-            alarm_id: 42,
-            node_id: "vav-1/zat".into(),
+        bus.publish(Event::EntityCreated {
+            entity_id: "vav-1".into(),
         });
 
         assert!(rx1.recv().await.is_ok());

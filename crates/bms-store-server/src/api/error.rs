@@ -56,28 +56,6 @@ impl From<crate::store::node_store::NodeError> for ApiError {
     }
 }
 
-impl From<crate::store::alarm_store::AlarmError> for ApiError {
-    fn from(e: crate::store::alarm_store::AlarmError) -> Self {
-        match e {
-            crate::store::alarm_store::AlarmError::NotFound => {
-                Self::NotFound("alarm not found".into())
-            }
-            other => Self::Internal(other.to_string()),
-        }
-    }
-}
-
-impl From<crate::store::schedule_store::ScheduleError> for ApiError {
-    fn from(e: crate::store::schedule_store::ScheduleError) -> Self {
-        match e {
-            crate::store::schedule_store::ScheduleError::NotFound => {
-                Self::NotFound("schedule not found".into())
-            }
-            other => Self::Internal(other.to_string()),
-        }
-    }
-}
-
 impl From<crate::store::user_store::UserError> for ApiError {
     fn from(e: crate::store::user_store::UserError) -> Self {
         match e {

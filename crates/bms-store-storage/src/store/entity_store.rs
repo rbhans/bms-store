@@ -302,6 +302,11 @@ impl EntityStore {
         entity_id: &str,
         tags: Vec<(String, Option<String>)>,
     ) -> Result<(), EntityError> {
+        // Deliverable 5: lightweight tag validation warnings at the write path.
+        // Runs without rejecting the write — only warns via tracing so automation
+        // (prototype apply, API writes) gets the same signal as the GUI validator.
+        emit_tag_warnings(entity_id, &tags);
+
         let (reply_tx, reply_rx) = oneshot::channel();
         self.cmd_tx
             .send(EntityCmd::SetTags {
@@ -1038,6 +1043,58 @@ fn touch_entity(conn: &rusqlite::Connection, id: &str) {
         "UPDATE entity SET updated_ms = ?1 WHERE id = ?2",
         rusqlite::params![now, id],
     );
+}
+
+// ----------------------------------------------------------------
+// Tag validation warnings (deliverable 5)
+// ----------------------------------------------------------------
+
+/// Emit `tracing::warn!` for any structural tag issues on the about-to-be-written
+/// tag set.  Does NOT reject the write — purely advisory.  Called from `set_tags`
+/// so that automation (prototype apply, API writes) gets the same warnings as the
+/// GUI validator without requiring a dependency on `bms-store-bridges`.
+fn emit_tag_warnings(entity_id: &str, tags: &[(String, Option<String>)]) {
+    let tag_names: std::collections::HashSet<&str> = tags.iter().map(|(k, _)| k.as_str()).collect();
+
+    // point + equip marker without equipRef
+    if tag_names.contains("equip") && tag_names.contains("point") && !tag_names.contains("equipRef") {
+        tracing::warn!(
+            entity_id,
+            "tag-validation: point carries 'equip' marker but is missing 'equipRef'"
+        );
+    }
+
+    // equip without siteRef or floorRef (advisory — common in staging data)
+    if tag_names.contains("equip") && !tag_names.contains("siteRef") {
+        tracing::warn!(
+            entity_id,
+            "tag-validation: equip entity is missing 'siteRef'"
+        );
+    }
+
+    // sensor without point
+    if tag_names.contains("sensor") && !tag_names.contains("point") {
+        tracing::warn!(
+            entity_id,
+            "tag-validation: 'sensor' tag present without 'point' marker"
+        );
+    }
+
+    // cmd without point
+    if tag_names.contains("cmd") && !tag_names.contains("point") {
+        tracing::warn!(
+            entity_id,
+            "tag-validation: 'cmd' tag present without 'point' marker"
+        );
+    }
+
+    // sp without point
+    if tag_names.contains("sp") && !tag_names.contains("point") {
+        tracing::warn!(
+            entity_id,
+            "tag-validation: 'sp' (setpoint) tag present without 'point' marker"
+        );
+    }
 }
 
 // ----------------------------------------------------------------

@@ -64,20 +64,12 @@ pub mod discovery {
     pub use bms_store_bridges::discovery::*;
 }
 
-pub mod energy {
-    pub use bms_store_storage::energy::*;
-}
-
 pub mod event {
     pub use bms_store_storage::event::*;
 }
 
 pub mod export {
     pub use bms_store_storage::export::*;
-}
-
-pub mod fdd {
-    pub use bms_store_storage::fdd::*;
 }
 
 pub mod health {
@@ -100,19 +92,10 @@ pub mod project {
     pub use bms_store_storage::project::*;
 }
 
-pub mod reporting {
-    pub use bms_store_storage::reporting::*;
-}
-
 pub mod store {
     pub use bms_store_storage::store::*;
 }
 
 pub mod webhook {
     pub use bms_store_storage::webhook::*;
-}
-
-#[cfg(feature = "cloud")]
-pub mod cloud {
-    pub use bms_store_storage::cloud::*;
 }
