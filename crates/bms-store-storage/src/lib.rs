@@ -2,6 +2,7 @@
 
 //! Storage and background services for bms-store.
 
+pub mod api_key_store;
 pub mod auth;
 pub mod backup;
 pub mod boot;

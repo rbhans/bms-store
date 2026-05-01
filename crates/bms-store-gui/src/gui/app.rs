@@ -7,6 +7,8 @@ use tokio::sync::Mutex;
 use bms_store_storage::config::profile::PointValue;
 
 use bms_store_storage::auth::AllRolePermissions;
+use bms_store_storage::backup::BackupScheduler;
+use bms_store_storage::api_key_store::ApiKeyStore;
 use bms_store_storage::logic::engine::ExecutionEngine;
 use crate::platform::{init_platform, SharedPlatform};
 use bms_store_storage::project::{load_project_meta, ProjectMeta, ProjectPaths};
@@ -258,6 +260,26 @@ pub(crate) fn ProjectApp(
     let webhook_store = plat.webhook_store.clone();
     let export_store = plat.export_store.clone();
     let naming_rule_store = plat.naming_rule_store.clone();
+    let override_store = plat.override_store.clone();
+
+    // Backup scheduler — constructed from project paths; not part of StorageRuntime.
+    let backup_scheduler = use_hook({
+        let paths = project_paths.clone();
+        let project_id = project_meta.id.clone();
+        move || {
+            let sched = BackupScheduler::new(&project_id, &paths.data_dir);
+            sched.start();
+            std::sync::Arc::new(std::sync::Mutex::new(sched))
+        }
+    });
+
+    // API key store — file-backed, stored next to project data.
+    let api_key_store = use_hook({
+        let paths = project_paths.clone();
+        move || {
+            std::sync::Arc::new(ApiKeyStore::new(paths.data_dir.join("api_keys.json")))
+        }
+    });
 
     // Per-site shutdown token — lifecycle matches the *site*, not this component.
     // Tasks bound to this token are things that should live as long as the site
@@ -382,6 +404,9 @@ pub(crate) fn ProjectApp(
         mqtt_store: mqtt_store.clone(),
         webhook_store: webhook_store.clone(),
         export_store: export_store.clone(),
+        override_store: override_store.clone(),
+        backup_scheduler: backup_scheduler.clone(),
+        api_key_store: api_key_store.clone(),
         health: plat.health.clone(),
         current_user,
         user_store: user_store.clone(),

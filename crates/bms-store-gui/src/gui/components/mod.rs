@@ -1,5 +1,7 @@
+pub mod api_keys_view;
 pub mod atlas_settings;
 pub mod audit_log_view;
+pub mod backup_view;
 pub mod bacnet_device_alarms;
 pub mod bacnet_device_cov;
 pub mod bacnet_device_files;
@@ -16,17 +18,20 @@ pub mod discovery_list;
 pub mod discovery_utils;
 pub mod discovery_view;
 pub mod export_settings;
+pub mod health_view;
 pub mod login;
 
 pub mod modbus_device_diagnostics;
 pub mod modbus_device_registers;
 pub mod mqtt_settings;
+pub mod override_view;
 pub mod plugin_manager;
 pub mod point_detail;
 pub mod preview_modal;
 pub mod point_table;
 pub mod programming_view;
 pub mod project_launcher;
+pub mod retention_view;
 pub mod relationships_section;
 pub mod sidebar;
 pub mod theme_settings;

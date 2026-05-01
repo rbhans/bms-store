@@ -11,10 +11,15 @@ use bms_store_storage::store::entity_store::Entity;
 use bms_store_storage::auth::Permission;
 use bms_store_storage::store::node_store::NodeRecord;
 
+use super::api_keys_view::ApiKeysView;
 use super::audit_log_view::AuditLogView;
+use super::backup_view::BackupView;
 use super::discovery_view::DiscoveryView;
+use super::health_view::HealthView;
+use super::override_view::OverrideView;
 use super::preview_modal::{ChangeKind, PreviewModal, PreviewRow};
 use super::programming_view::ProgrammingView;
+use super::retention_view::RetentionView;
 use super::theme_settings::ThemeSettingsView;
 use super::user_management::UserManagementView;
 use super::virtual_points_view::VirtualPointsView;
@@ -39,6 +44,11 @@ pub enum ConfigSection {
     AuditLog,
     DataExport,
     Atlas,
+    Health,
+    Overrides,
+    Backup,
+    Retention,
+    ApiKeys,
 }
 
 impl ConfigSection {
@@ -57,6 +67,11 @@ impl ConfigSection {
             Self::Users => "Users",
             Self::AuditLog => "Audit Log",
             Self::Atlas => "Atlas",
+            Self::Health => "Health",
+            Self::Overrides => "Overrides",
+            Self::Backup => "Backup",
+            Self::Retention => "Retention",
+            Self::ApiKeys => "API Keys",
         }
     }
 
@@ -93,6 +108,12 @@ impl ConfigSection {
         if can_view_audit {
             sections.push(Self::AuditLog);
         }
+        // Backend subsystem tabs — visible to all authenticated users.
+        sections.push(Self::Health);
+        sections.push(Self::Overrides);
+        sections.push(Self::Backup);
+        sections.push(Self::Retention);
+        sections.push(Self::ApiKeys);
         sections
     }
 }
@@ -198,6 +219,11 @@ pub fn ConfigView() -> Element {
                     ConfigSection::WebServer => rsx! { WebServerSettingsView {} },
                     ConfigSection::AuditLog => rsx! { AuditLogView {} },
                     ConfigSection::Atlas => rsx! { super::atlas_settings::AtlasSettingsView {} },
+                    ConfigSection::Health => rsx! { HealthView {} },
+                    ConfigSection::Overrides => rsx! { OverrideView {} },
+                    ConfigSection::Backup => rsx! { BackupView {} },
+                    ConfigSection::Retention => rsx! { RetentionView {} },
+                    ConfigSection::ApiKeys => rsx! { ApiKeysView {} },
                 }
             }
         }

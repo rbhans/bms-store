@@ -22,7 +22,10 @@ use bms_store_storage::store::node_store::NodeStore;
 use bms_store_storage::store::point_store::PointStore;
 use bms_store_storage::store::user_store::{User, UserStore};
 use bms_store_storage::store::naming_rule_store::NamingRuleStore;
+use bms_store_storage::store::override_store::OverrideStore;
 use bms_store_storage::store::webhook_store::WebhookStore;
+use bms_store_storage::backup::BackupScheduler;
+use bms_store_storage::api_key_store::ApiKeyStore;
 
 
 #[derive(Debug, Clone)]
@@ -250,6 +253,12 @@ pub struct AppState {
     pub webhook_store: WebhookStore,
     /// Export store for database export connector configuration.
     pub export_store: bms_store_storage::store::export_store::ExportStore,
+    /// Override store — tracks active manual writes.
+    pub override_store: OverrideStore,
+    /// Backup scheduler — manages project backups.
+    pub backup_scheduler: Arc<std::sync::Mutex<BackupScheduler>>,
+    /// API key store — manages programmatic access keys.
+    pub api_key_store: Arc<ApiKeyStore>,
     /// Platform health registry — shared across all subsystems.
     pub health: bms_store_storage::health::HealthRegistry,
     /// Currently logged-in user.
