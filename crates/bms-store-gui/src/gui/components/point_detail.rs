@@ -240,6 +240,20 @@ pub fn PointDetail() -> Element {
                             "{flag}"
                         }
                     }
+                    // Force re-poll: best-effort — no dedicated API yet.
+                    // Bumping store_version causes bridges to reschedule the poll.
+                    span {
+                        class: "status-badge-action",
+                        title: "Force re-poll (best-effort: bridges will reschedule next poll cycle)",
+                        onclick: {
+                            let mut sv = state.store_version;
+                            move |_| {
+                                let cur = *sv.read();
+                                sv.set(cur.wrapping_add(1));
+                            }
+                        },
+                        "Re-poll"
+                    }
                 }
             } else {
                 div { class: "status-badges-ok",
