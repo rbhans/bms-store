@@ -6,6 +6,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use bms_store_storage::config::profile::PointValue;
+use bms_store_storage::haystack::filter::{matches as filter_matches, parse_filter};
 use crate::gui::state::{AppState, EquipSymbol};
 use bms_store_storage::store::point_store::PointStatusFlags;
 use super::preview_modal::{ChangeKind, PreviewModal, PreviewRow};
@@ -119,6 +120,10 @@ pub fn PointTable() -> Element {
     let mut show_preview = use_signal(|| false);
     let mut bulk_rename_status: Signal<Option<String>> = use_signal(|| None);
     let mut bulk_regex_error: Signal<Option<String>> = use_signal(|| None);
+
+    // Haystack filter state (deliverable 5)
+    let mut hs_filter_text = use_signal(String::new);
+    let mut hs_filter_error: Signal<Option<String>> = use_signal(|| None);
 
     // Drag-and-drop state (edit mode only)
     let mut dragging_point: Signal<Option<String>> = use_signal(|| None);
@@ -295,6 +300,53 @@ pub fn PointTable() -> Element {
             })
             .collect()
     };
+
+    // ── Haystack filter (deliverable 5) ───────────────────────────────────
+    // Load entity tags for all points of this device so we can filter by them.
+    let es_filter = state.entity_store.clone();
+    let did_filter = device_id.clone();
+    let entity_tags_res = use_resource(move || {
+        let store = es_filter.clone();
+        let did = did_filter.clone();
+        let _v = state.store_version.read();
+        async move {
+            // Fetch all entities whose id starts with "device_id/"
+            let all = store.list_entities(Some("point"), None).await;
+            let prefix = format!("{did}/");
+            all.into_iter()
+                .filter(|e| e.id.starts_with(&prefix))
+                .map(|e| {
+                    let short_id = e.id[prefix.len()..].to_string();
+                    (short_id, e.tags.clone())
+                })
+                .collect::<HashMap<String, _>>()
+        }
+    });
+    let entity_tags_read = entity_tags_res.read();
+    let fallback_map: HashMap<String, HashMap<String, Option<String>>> = HashMap::new();
+    let entity_tags: &HashMap<String, HashMap<String, Option<String>>> =
+        entity_tags_read.as_ref().unwrap_or(&fallback_map);
+    let static_empty: HashMap<String, Option<String>> = HashMap::new();
+
+    // Parse the filter once and apply to rows
+    let filter_text = hs_filter_text.read().clone();
+    if !filter_text.trim().is_empty() {
+        match parse_filter(filter_text.trim()) {
+            Ok(expr) => {
+                hs_filter_error.set(None);
+                rows.retain(|row| {
+                    let tags = entity_tags.get(&row.point_id).unwrap_or(&static_empty);
+                    filter_matches(&expr, tags)
+                });
+            }
+            Err(e) => {
+                hs_filter_error.set(Some(format!("Parse error: {e}")));
+                // Don't filter on parse error — show all rows
+            }
+        }
+    } else {
+        hs_filter_error.set(None);
+    }
 
     // Sort
     let col = *sort_col.read();
@@ -734,6 +786,30 @@ pub fn PointTable() -> Element {
                         },
                         "\u{270E}"
                     }
+                }
+            }
+
+            // ── Haystack filter bar (deliverable 5) ──────────────────────────
+            div { class: "pt-filter-bar",
+                input {
+                    class: "pt-filter-input",
+                    r#type: "text",
+                    placeholder: "Filter (Haystack syntax, e.g. temp and air and equipRef==@ahu-1)",
+                    value: "{hs_filter_text}",
+                    oninput: move |e| hs_filter_text.set(e.value()),
+                }
+                if !hs_filter_text.read().is_empty() {
+                    button {
+                        class: "sidebar-search-clear",
+                        onclick: move |_| {
+                            hs_filter_text.set(String::new());
+                            hs_filter_error.set(None);
+                        },
+                        "x"
+                    }
+                }
+                if let Some(ref err) = *hs_filter_error.read() {
+                    span { class: "pt-filter-error", "{err}" }
                 }
             }
 
