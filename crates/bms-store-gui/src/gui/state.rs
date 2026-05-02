@@ -161,45 +161,73 @@ pub enum LaunchSelection {
     Single(bms_store_storage::project::ProjectPaths),
 }
 
-/// What kind of content a nav node represents.
+/// What kind of physical-hierarchy node this represents.
+///
+/// The Nav tab is the building/campus hierarchy only — every variant is a
+/// spatial node. Devices show up in the Devices sidebar tab; they're
+/// linked into the spatial tree by refs (`siteRef` / `spaceRef`), not by
+/// appearing as nav nodes.
+///
+/// Hierarchy:
+/// ```text
+/// Site
+/// └── Building
+///     └── Floor
+///         ├── FloorArea   (optional — east wing, north quadrant, etc.)
+///         │   └── Room
+///         └── Room
+/// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum NavNodeKind {
-    /// Container only — just holds children, no content of its own.
-    Folder,
-    /// Blank graphic page / canvas.
-    Page,
-    /// Links to a device (shows its point table in main content).
-    Device { device_id: String },
-    /// Site / campus — creates NodeType::Site in NodeStore. Also acts as a page (canvas).
+    /// Site / campus — creates `NodeType::Site` in `NodeStore`.
     Site { node_id: String },
-    /// Physical building — creates NodeType::Space + tag "building". Also acts as a page.
+    /// Physical building — creates `NodeType::Space` + tag `"building"`.
     Building { node_id: String },
-    /// Floor within a building — creates NodeType::Space + tag "floor". Also acts as a page.
+    /// Floor within a building — `NodeType::Space` + tag `"floor"`.
     Floor { node_id: String },
-    /// Room on a floor — creates NodeType::Space + tag "room". Also acts as a page.
+    /// Sub-floor area (wing, quadrant, section) — `NodeType::Space` + tag `"floorArea"`.
+    FloorArea { node_id: String },
+    /// Room — `NodeType::Space` + tag `"room"`.
     Room { node_id: String },
 }
 
 impl NavNodeKind {
-    /// Returns true for Site/Building/Floor/Room (physical hierarchy nodes).
+    /// Returns true for every variant (kept for compat with old call sites
+    /// that branched between spatial and non-spatial nodes).
     pub fn is_spatial(&self) -> bool {
-        matches!(
-            self,
-            NavNodeKind::Site { .. }
-                | NavNodeKind::Building { .. }
-                | NavNodeKind::Floor { .. }
-                | NavNodeKind::Room { .. }
-        )
+        true
     }
 
-    /// Returns the NodeStore node_id for spatial kinds, None for others.
+    /// Returns the `NodeStore` node_id this nav node points at.
     pub fn node_store_id(&self) -> Option<&str> {
+        Some(match self {
+            NavNodeKind::Site { node_id }
+            | NavNodeKind::Building { node_id }
+            | NavNodeKind::Floor { node_id }
+            | NavNodeKind::FloorArea { node_id }
+            | NavNodeKind::Room { node_id } => node_id.as_str(),
+        })
+    }
+
+    /// Kind tag string — drives the icon, label, and NodeStore tag.
+    pub fn kind_str(&self) -> &'static str {
         match self {
-            NavNodeKind::Site { node_id } => Some(node_id),
-            NavNodeKind::Building { node_id } => Some(node_id),
-            NavNodeKind::Floor { node_id } => Some(node_id),
-            NavNodeKind::Room { node_id } => Some(node_id),
-            _ => None,
+            NavNodeKind::Site { .. } => "site",
+            NavNodeKind::Building { .. } => "building",
+            NavNodeKind::Floor { .. } => "floor",
+            NavNodeKind::FloorArea { .. } => "floorArea",
+            NavNodeKind::Room { .. } => "room",
+        }
+    }
+
+    /// Which child kinds may be added under this node.
+    pub fn allowed_children(&self) -> &'static [&'static str] {
+        match self {
+            NavNodeKind::Site { .. } => &["building"],
+            NavNodeKind::Building { .. } => &["floor"],
+            NavNodeKind::Floor { .. } => &["floorArea", "room"],
+            NavNodeKind::FloorArea { .. } => &["room"],
+            NavNodeKind::Room { .. } => &[],
         }
     }
 }
@@ -476,8 +504,48 @@ pub fn save_layout(paths: &ProjectPaths, state: &SavedLayoutState) {
 }
 
 /// Load nav tree + pages from the project data directory.
+///
+/// Tries the current schema first. On failure, walks the JSON tree and
+/// strips legacy `NavNodeKind` variants (`Folder`, `Page`, `Device`) that
+/// were removed when the Nav tab was scoped to physical hierarchy only.
+/// This keeps existing projects loadable instead of silently returning an
+/// empty tree on a schema rev.
 pub fn load_layout(paths: &ProjectPaths) -> Option<SavedLayoutState> {
     let path = paths.data_dir.join(LAYOUT_FILE);
     let data = std::fs::read_to_string(path).ok()?;
-    serde_json::from_str(&data).ok()
+    if let Ok(state) = serde_json::from_str::<SavedLayoutState>(&data) {
+        return Some(state);
+    }
+    // Fallback: surgically drop legacy nodes from the raw JSON.
+    let mut value: serde_json::Value = serde_json::from_str(&data).ok()?;
+    if let Some(arr) = value
+        .get_mut("nav_tree")
+        .and_then(|t| t.as_array_mut())
+    {
+        prune_legacy_nodes(arr);
+    }
+    serde_json::from_value(value).ok()
+}
+
+/// Recursively drop nav-tree entries whose `kind` is a removed variant.
+fn prune_legacy_nodes(arr: &mut Vec<serde_json::Value>) {
+    arr.retain(|node| {
+        let kind = node.get("kind");
+        let removed = match kind {
+            Some(serde_json::Value::String(s)) => {
+                matches!(s.as_str(), "Folder" | "Page")
+            }
+            Some(serde_json::Value::Object(o)) => {
+                // Tagged variants serialize as an object with a single key.
+                o.contains_key("Device")
+            }
+            _ => false,
+        };
+        !removed
+    });
+    for node in arr.iter_mut() {
+        if let Some(children) = node.get_mut("children").and_then(|c| c.as_array_mut()) {
+            prune_legacy_nodes(children);
+        }
+    }
 }

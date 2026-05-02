@@ -30,31 +30,6 @@ pub fn NavTree() -> Element {
     }
 }
 
-/// Determine the nearest spatial ancestor kind for context-sensitive dropdown.
-/// Returns "root", "site", "building", "floor", "room", or "folder".
-fn nearest_spatial_context(tree: &[NavNode], parent_nav_id: Option<&str>) -> &'static str {
-    let Some(pid) = parent_nav_id else {
-        return "root";
-    };
-    if let Some(node) = find_nav_node(tree, pid) {
-        match &node.kind {
-            NavNodeKind::Site { .. } => "site",
-            NavNodeKind::Building { .. } => "building",
-            NavNodeKind::Floor { .. } => "floor",
-            NavNodeKind::Room { .. } => "room",
-            NavNodeKind::Folder => {
-                if let Some(parent) = find_nav_parent(tree, pid) {
-                    return nearest_spatial_context(tree, Some(&parent.id));
-                }
-                "root"
-            }
-            _ => "root",
-        }
-    } else {
-        "root"
-    }
-}
-
 /// Find a nav node by ID in the tree.
 fn find_nav_node<'a>(tree: &'a [NavNode], id: &str) -> Option<&'a NavNode> {
     for node in tree {
@@ -101,7 +76,9 @@ pub struct SpatialRefs {
 fn collect_spatial_up(tree: &[NavNode], nav_id: &str, refs: &mut SpatialRefs) {
     if let Some(node) = find_nav_node(tree, nav_id) {
         match &node.kind {
-            NavNodeKind::Room { node_id } => {
+            // FloorArea + Room both populate space_ref — they're both
+            // sub-floor spaces in Project Haystack terms.
+            NavNodeKind::Room { node_id } | NavNodeKind::FloorArea { node_id } => {
                 if refs.space_ref.is_none() {
                     refs.space_ref = Some(node_id.clone());
                 }
@@ -121,7 +98,6 @@ fn collect_spatial_up(tree: &[NavNode], nav_id: &str, refs: &mut SpatialRefs) {
                     refs.site_ref = Some(node_id.clone());
                 }
             }
-            _ => {}
         }
     }
     if let Some(parent) = find_nav_parent(tree, nav_id) {
@@ -129,44 +105,16 @@ fn collect_spatial_up(tree: &[NavNode], nav_id: &str, refs: &mut SpatialRefs) {
     }
 }
 
-/// Sync location refs on a device's equip node in NodeStore.
-async fn sync_device_location_refs(
-    node_store: &NodeStore,
-    device_id: &str,
-    nav_tree: &[NavNode],
-    parent_nav_id: &str,
-) {
-    let refs = collect_spatial_ancestors(nav_tree, parent_nav_id);
-    if let Some(site_id) = &refs.site_ref {
-        let _ = node_store.set_ref(device_id, "siteRef", site_id).await;
-    }
-    if let Some(bldg_id) = &refs.building_ref {
-        let _ = node_store.set_ref(device_id, "buildingRef", bldg_id).await;
-    }
-    if let Some(floor_id) = &refs.floor_ref {
-        let _ = node_store.set_ref(device_id, "floorRef", floor_id).await;
-    }
-    if let Some(space_id) = &refs.space_ref {
-        let _ = node_store.set_ref(device_id, "spaceRef", space_id).await;
-    }
-}
-
-/// Clear all location refs from a device's equip node.
+/// Devices are linked to spatial nodes via `siteRef` / `buildingRef` /
+/// `floorRef` / `spaceRef` on the device's equip node in `NodeStore`.
+/// They no longer appear as nav-tree leaves; this helper is kept so
+/// future "Move device to space" UI can call it directly.
+#[allow(dead_code)]
 async fn clear_device_location_refs(node_store: &NodeStore, device_id: &str) {
     let _ = node_store.remove_ref(device_id, "siteRef").await;
     let _ = node_store.remove_ref(device_id, "buildingRef").await;
     let _ = node_store.remove_ref(device_id, "floorRef").await;
     let _ = node_store.remove_ref(device_id, "spaceRef").await;
-}
-
-/// Recursively collect all device IDs from a nav subtree.
-fn collect_device_ids(node: &NavNode, out: &mut Vec<String>) {
-    if let NavNodeKind::Device { device_id } = &node.kind {
-        out.push(device_id.clone());
-    }
-    for child in &node.children {
-        collect_device_ids(child, out);
-    }
 }
 
 /// Inline add-node button + form.
@@ -176,86 +124,32 @@ fn AddNodeButton(parent_id: Option<String>, depth: u32, parent_spatial: String) 
     let mut adding = use_signal(|| false);
     let mut name_input = use_signal(|| String::new());
     let mut kind_choice = use_signal(|| String::new());
-    let mut device_choice = use_signal(|| String::new());
 
     let is_adding = *adding.read();
     let is_child = parent_id.is_some();
 
-    // Build device list from NodeStore (includes both scenario and discovered/accepted devices)
-    let _node_ver = *state.node_version.read();
-    let mut device_list_sig: Signal<Vec<(String, String)>> = use_signal(Vec::new);
-    {
-        let ns = state.node_store.clone();
-        let _ = use_resource(move || {
-            let ns = ns.clone();
-            let _nv = _node_ver;
-            async move {
-                let equips = ns.list_nodes(Some("equip"), None).await;
-                let list: Vec<(String, String)> = equips
-                    .into_iter()
-                    .map(|n| {
-                        let label = if n.dis.is_empty() {
-                            n.id.clone()
-                        } else {
-                            n.dis.clone()
-                        };
-                        (n.id, label)
-                    })
-                    .collect();
-                device_list_sig.set(list);
-            }
-        });
-    }
-    let device_list = device_list_sig.read().clone();
-    let first_device = device_list
-        .first()
-        .map(|(id, _)| id.clone())
-        .unwrap_or_default();
-
-    // Context-sensitive kind options based on parent spatial context
-    // Hierarchy: Site > Building > Floor > Room > Device
+    // Context-sensitive kind options. The Nav tab is the building / campus
+    // hierarchy only — Site → Building → Floor → (FloorArea) → Room.
     let kind_options: Vec<(&str, &str)> = match parent_spatial.as_str() {
-        "root" => vec![
-            ("site", "Site"),
-            ("building", "Building"),
-            ("folder", "Folder"),
-            ("page", "Page"),
-        ],
-        "site" => vec![
-            ("building", "Building"),
-            ("folder", "Folder"),
-            ("page", "Page"),
-            ("device", "Device"),
-        ],
-        "building" => vec![
-            ("floor", "Floor"),
-            ("folder", "Folder"),
-            ("page", "Page"),
-            ("device", "Device"),
-        ],
-        "floor" => vec![
-            ("room", "Room"),
-            ("folder", "Folder"),
-            ("page", "Page"),
-            ("device", "Device"),
-        ],
-        "room" => vec![("device", "Device"), ("folder", "Folder"), ("page", "Page")],
-        // Under folder — allow all types
-        _ => vec![
-            ("site", "Site"),
-            ("building", "Building"),
-            ("floor", "Floor"),
-            ("room", "Room"),
-            ("folder", "Folder"),
-            ("page", "Page"),
-            ("device", "Device"),
-        ],
+        "root" => vec![("site", "Site")],
+        "site" => vec![("building", "Building")],
+        "building" => vec![("floor", "Floor")],
+        "floor" => vec![("floorArea", "Floor Area"), ("room", "Room")],
+        "floorArea" => vec![("room", "Room")],
+        // Room is a leaf — no further children. Empty options collapses
+        // the Add button below.
+        _ => vec![],
     };
 
     let default_kind = kind_options
         .first()
         .map(|(v, _)| v.to_string())
-        .unwrap_or("folder".into());
+        .unwrap_or_default();
+
+    if kind_options.is_empty() {
+        // Leaf — nothing to add here.
+        return rsx! {};
+    }
 
     if !is_adding {
         let label = if is_child { "+ Child" } else { "+ Add" };
@@ -271,14 +165,12 @@ fn AddNodeButton(parent_id: Option<String>, depth: u32, parent_spatial: String) 
                     adding.set(true);
                     name_input.set(String::new());
                     kind_choice.set(default_kind.clone());
-                    device_choice.set(first_device.clone());
                 },
                 "{label}"
             }
         };
     }
 
-    let kind_str = kind_choice.read().clone();
     let pid = parent_id.clone();
 
     let confirm = move |_| {
@@ -289,30 +181,25 @@ fn AddNodeButton(parent_id: Option<String>, depth: u32, parent_spatial: String) 
 
         let nav_node_id = state.alloc_node_id();
         let kind_val = kind_choice.read().clone();
-        let device_id_val = device_choice.read().clone();
 
         let kind = match kind_val.as_str() {
-            "site" => {
-                let store_id = format!("site-{}", uuid::Uuid::new_v4());
-                NavNodeKind::Site { node_id: store_id }
-            }
-            "building" => {
-                let store_id = format!("bldg-{}", uuid::Uuid::new_v4());
-                NavNodeKind::Building { node_id: store_id }
-            }
-            "floor" => {
-                let store_id = format!("floor-{}", uuid::Uuid::new_v4());
-                NavNodeKind::Floor { node_id: store_id }
-            }
-            "room" => {
-                let store_id = format!("room-{}", uuid::Uuid::new_v4());
-                NavNodeKind::Room { node_id: store_id }
-            }
-            "page" => NavNodeKind::Page,
-            "device" => NavNodeKind::Device {
-                device_id: device_id_val.clone(),
+            "site" => NavNodeKind::Site {
+                node_id: format!("site-{}", uuid::Uuid::new_v4()),
             },
-            _ => NavNodeKind::Folder,
+            "building" => NavNodeKind::Building {
+                node_id: format!("bldg-{}", uuid::Uuid::new_v4()),
+            },
+            "floor" => NavNodeKind::Floor {
+                node_id: format!("floor-{}", uuid::Uuid::new_v4()),
+            },
+            "floorArea" => NavNodeKind::FloorArea {
+                node_id: format!("flarea-{}", uuid::Uuid::new_v4()),
+            },
+            "room" => NavNodeKind::Room {
+                node_id: format!("room-{}", uuid::Uuid::new_v4()),
+            },
+            // Unknown — bail out to avoid creating a malformed node.
+            _ => return,
         };
 
         let new_node = NavNode {
@@ -381,6 +268,22 @@ fn AddNodeButton(parent_id: Option<String>, depth: u32, parent_spatial: String) 
                     let _ = ns2.set_tag(&nid, "floor", None).await;
                 });
             }
+            NavNodeKind::FloorArea { node_id } => {
+                let nid = node_id.clone();
+                let lbl = label.clone();
+                let parent_store_id = pid_clone
+                    .as_ref()
+                    .and_then(|p| find_spatial_parent_store_id(&tree_snap, p));
+                let ns2 = ns.clone();
+                spawn(async move {
+                    let mut node = Node::new(nid.clone(), NodeType::Space, lbl);
+                    if let Some(psid) = parent_store_id {
+                        node = node.with_parent(psid);
+                    }
+                    let _ = ns2.create_node(node).await;
+                    let _ = ns2.set_tag(&nid, "floorArea", None).await;
+                });
+            }
             NavNodeKind::Room { node_id } => {
                 let nid = node_id.clone();
                 let lbl = label.clone();
@@ -397,36 +300,10 @@ fn AddNodeButton(parent_id: Option<String>, depth: u32, parent_spatial: String) 
                     let _ = ns2.set_tag(&nid, "room", None).await;
                 });
             }
-            NavNodeKind::Device { device_id } => {
-                let did = device_id.clone();
-                if let Some(ref parent_nav) = pid_clone {
-                    let pnav = parent_nav.clone();
-                    spawn(async move {
-                        sync_device_location_refs(&ns, &did, &tree_snap, &pnav).await;
-                    });
-                }
-            }
-            _ => {}
         }
 
-        // Spatial nodes act as pages (show floor plan canvas) AND navigate to them
-        if kind.is_spatial() {
-            state.active_view.set(ActiveView::Page(nav_node_id));
-        } else {
-            match &kind {
-                NavNodeKind::Page => {
-                    state.active_view.set(ActiveView::Page(nav_node_id));
-                }
-                NavNodeKind::Device { device_id } => {
-                    state.selected_device.set(Some(device_id.clone()));
-                    state.active_view.set(ActiveView::Device {
-                        node_id: nav_node_id,
-                        device_id: device_id.clone(),
-                    });
-                }
-                _ => {}
-            }
-        }
+        // Every nav node is spatial — open its canvas page.
+        state.active_view.set(ActiveView::Page(nav_node_id));
 
         state.save_layout();
         adding.set(false);
@@ -445,15 +322,6 @@ fn AddNodeButton(parent_id: Option<String>, depth: u32, parent_spatial: String) 
                 onchange: move |e| kind_choice.set(e.value()),
                 for (val, display) in &kind_options {
                     option { value: *val, "{display}" }
-                }
-            }
-            if kind_str == "device" {
-                select {
-                    value: "{device_choice}",
-                    onchange: move |e| device_choice.set(e.value()),
-                    for (did, label) in &device_list {
-                        option { value: "{did}", "{label}" }
-                    }
                 }
             }
             div { class: "nav-add-actions",
@@ -499,53 +367,24 @@ fn NavNodeView(node: NavNode, depth: u32) -> Element {
     let active_view = state.active_view.read().clone();
     let node_id = node.id.clone();
 
-    // Spatial nodes use Page view for their canvas, so check page match too
-    let is_active = match (&active_view, &node.kind) {
-        (ActiveView::Page(id), NavNodeKind::Page) => id == &node.id,
-        (ActiveView::Page(id), _) if node.kind.is_spatial() => id == &node.id,
-        (ActiveView::Device { node_id: nid, .. }, NavNodeKind::Device { .. }) => nid == &node.id,
+    let is_active = match &active_view {
+        ActiveView::Page(id) => id == &node.id,
         _ => false,
     };
 
     let icon = match &node.kind {
-        NavNodeKind::Folder => {
-            if is_open && has_children {
-                "\u{1F4C2}"
-            } else {
-                "\u{1F4C1}"
-            }
-        }
-        NavNodeKind::Page => "\u{1F4C4}",
-        NavNodeKind::Device { .. } => "\u{2699}\u{FE0F}",
         NavNodeKind::Site { .. } => "\u{1F3D8}\u{FE0F}",
         NavNodeKind::Building { .. } => "\u{1F3E2}",
         NavNodeKind::Floor { .. } => "\u{25A6}",
+        NavNodeKind::FloorArea { .. } => "\u{25A3}",
         NavNodeKind::Room { .. } => "\u{1F6AA}",
     };
 
-    // Spatial nodes and folders are always expandable containers
-    let is_container = matches!(
-        node.kind,
-        NavNodeKind::Folder
-            | NavNodeKind::Site { .. }
-            | NavNodeKind::Building { .. }
-            | NavNodeKind::Floor { .. }
-            | NavNodeKind::Room { .. }
-    );
+    // Every kind except Room can have children. Rooms are leaves.
+    let is_container = !matches!(node.kind, NavNodeKind::Room { .. });
 
     // Determine spatial context for child add button
-    let child_spatial = match &node.kind {
-        NavNodeKind::Site { .. } => "site",
-        NavNodeKind::Building { .. } => "building",
-        NavNodeKind::Floor { .. } => "floor",
-        NavNodeKind::Room { .. } => "room",
-        NavNodeKind::Folder => {
-            let tree = state.nav_tree.read();
-            nearest_spatial_context(&tree, Some(&node.id))
-        }
-        _ => "root",
-    };
-    let child_spatial_str = child_spatial.to_string();
+    let child_spatial_str = node.kind.kind_str().to_string();
 
     let delete_id = node.id.clone();
     let delete_kind = node.kind.clone();
@@ -558,34 +397,12 @@ fn NavNodeView(node: NavNode, depth: u32) -> Element {
                 class: if is_active { "tree-node-row active" } else { "tree-node-row" },
                 onclick: {
                     let nid = node_id.clone();
-                    let kind = node.kind.clone();
                     move |_| {
-                        match &kind {
-                            NavNodeKind::Folder => {
-                                expanded.set(!is_open);
-                            }
-                            // Spatial nodes: open their canvas page AND toggle expand
-                            NavNodeKind::Site { .. }
-                            | NavNodeKind::Building { .. }
-                            | NavNodeKind::Floor { .. }
-                            | NavNodeKind::Room { .. } => {
-                                state.active_view.set(ActiveView::Page(nid.clone()));
-                                if !is_open {
-                                    expanded.set(true);
-                                }
-                            }
-                            NavNodeKind::Page => {
-                                state.active_view.set(ActiveView::Page(nid.clone()));
-                            }
-                            NavNodeKind::Device { device_id } => {
-                                state.selected_device.set(Some(device_id.clone()));
-                                state.selected_point.set(None);
-                                state.detail_open.set(false);
-                                state.active_view.set(ActiveView::Device {
-                                    node_id: nid.clone(),
-                                    device_id: device_id.clone(),
-                                });
-                            }
+                        // Every nav node opens its canvas page; non-leaf
+                        // nodes also auto-expand on click.
+                        state.active_view.set(ActiveView::Page(nid.clone()));
+                        if is_container && !is_open {
+                            expanded.set(true);
                         }
                     }
                 },
@@ -614,33 +431,21 @@ fn NavNodeView(node: NavNode, depth: u32) -> Element {
                     onclick: {
                         let did = delete_id.clone();
                         let dkind = delete_kind.clone();
-                        let dnode = delete_node_clone.clone();
                         move |e: Event<MouseData>| {
                             e.stop_propagation();
-                            let is_active = match &*state.active_view.read() {
-                                ActiveView::Page(id) => id == &did,
-                                ActiveView::Device { node_id, .. } => node_id == &did,
-                                _ => false,
-                            };
+                            let is_active = matches!(
+                                &*state.active_view.read(),
+                                ActiveView::Page(id) if id == &did
+                            );
 
-                            // For spatial nodes: clean up NodeStore and device refs
+                            // Clean up the NodeStore node. Devices that
+                            // referenced this space keep their stale ref
+                            // for now; a future "Move device to space"
+                            // modal can clean them up.
                             let ns = state.node_store.clone();
-                            if dkind.is_spatial() {
-                                let mut device_ids = Vec::new();
-                                collect_device_ids(&dnode, &mut device_ids);
-                                let store_id = dkind.node_store_id().map(|s| s.to_string());
+                            if let Some(sid) = dkind.node_store_id().map(|s| s.to_string()) {
                                 spawn(async move {
-                                    for dev_id in &device_ids {
-                                        clear_device_location_refs(&ns, dev_id).await;
-                                    }
-                                    if let Some(sid) = store_id {
-                                        let _ = ns.delete_node(&sid).await;
-                                    }
-                                });
-                            } else if let NavNodeKind::Device { device_id } = &dkind {
-                                let dev_id = device_id.clone();
-                                spawn(async move {
-                                    clear_device_location_refs(&ns, &dev_id).await;
+                                    let _ = ns.delete_node(&sid).await;
                                 });
                             }
 

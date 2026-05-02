@@ -4,6 +4,16 @@
 
 Backend foundations + first GUI wiring for the operator-facing surface.
 
+### Changed
+
+- **Nav tab is physical hierarchy only** — `NavNodeKind` reduced to
+  `Site` → `Building` → `Floor` → `FloorArea` (sub-floor wing/quadrant)
+  → `Room`. Removed `Folder`, `Page`, and `Device` variants — devices
+  show up in the Devices sidebar tab and link into the spatial tree
+  via `siteRef` / `spaceRef`. `FloorArea` creates a `NodeType::Space`
+  with the `floorArea` tag. `load_layout` migrates existing projects
+  by stripping legacy nodes from `layout.json` on first load.
+
 ### Added
 
 - **`Event::Toast { level, message, detail, source }`** in `bms-core`. Use
