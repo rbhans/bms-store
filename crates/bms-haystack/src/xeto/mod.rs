@@ -1,11 +1,6 @@
-//! Xeto language support — parser, AST, runtime loader.
+//! Vendored Project Haystack / Xeto version pin.
 //!
-//! Step 1 ships only the pinned upstream version constant. The parser and
-//! loader land in step 2 (build-time generation) and step 5 (runtime loader).
+//! Build-time codegen lives in `build.rs`; this module just exposes the
+//! constant identifying which upstream snapshot is in `assets/xeto-master/`.
 
-pub mod loader;
-pub mod parser;
 pub mod version;
-
-pub use loader::{HaystackNamespace, SharedNamespace};
-pub use parser::{parse_lib_dir, parse_source, ParseError, ParsedLib, RuntimeGlobal, RuntimeSpec};

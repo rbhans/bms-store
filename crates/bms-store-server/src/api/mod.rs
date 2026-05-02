@@ -1,7 +1,6 @@
 pub mod api_keys;
 pub mod auth;
 pub mod error;
-pub mod haystack_state;
 pub mod pagination;
 pub mod routes;
 pub mod write;

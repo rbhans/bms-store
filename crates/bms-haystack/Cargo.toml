@@ -2,24 +2,10 @@
 name = "bms-haystack"
 version = "0.1.0"
 edition = "2021"
-description = "Haystack 5 / Xeto types, ontology, codecs, and HTTP ops"
+description = "Project Haystack 5 / Xeto ontology + tagging for bms-store"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
-chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "alloc"] }
-async-trait = { version = "0.1", optional = true }
-axum = { version = "0.8", optional = true }
-tokio = { version = "1", optional = true, features = ["sync", "time"] }
-uuid = { version = "1", optional = true, features = ["v4"] }
-
-[features]
-default = []
-server = ["dep:async-trait", "dep:axum", "dep:tokio", "dep:uuid"]
-
-[dev-dependencies]
-tower = { version = "0.5", features = ["util"] }
-http-body-util = "0.1"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

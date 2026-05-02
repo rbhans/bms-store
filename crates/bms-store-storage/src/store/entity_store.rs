@@ -118,17 +118,6 @@ enum EntityCmd {
         root_id: Option<EntityId>,
         reply: oneshot::Sender<Vec<Entity>>,
     },
-
-    /// Run an externally-built SQL `WHERE` fragment over the `entity`
-    /// table. The fragment must reference the outer alias `e` and the
-    /// `entity_tag` / `entity_ref` join tables. Used by the Haystack
-    /// HTTP facade for filter push-down. Params are JSON values that
-    /// the SQLite layer maps to native types internally.
-    FindBySqlFilter {
-        sql: String,
-        params: Vec<serde_json::Value>,
-        reply: oneshot::Sender<Vec<Entity>>,
-    },
 }
 
 // ----------------------------------------------------------------
@@ -239,24 +228,6 @@ impl EntityStore {
             })
             .map_err(|_| EntityError::ChannelClosed)?;
         reply_rx.await.map_err(|_| EntityError::ChannelClosed)?
-    }
-
-    /// Run a SQL `WHERE` fragment built by an external lowerer (e.g. the
-    /// Haystack filter→SQL push-down) and return the matching entities.
-    /// The fragment must reference outer alias `e` for the `entity` table.
-    /// Params are JSON values mapped to SQLite types internally.
-    pub async fn find_by_sql_filter(
-        &self,
-        sql: String,
-        params: Vec<serde_json::Value>,
-    ) -> Vec<Entity> {
-        let (reply_tx, reply_rx) = oneshot::channel();
-        let _ = self.cmd_tx.send(EntityCmd::FindBySqlFilter {
-            sql,
-            params,
-            reply: reply_tx,
-        });
-        reply_rx.await.unwrap_or_default()
     }
 
     pub async fn list_entities(
@@ -614,52 +585,8 @@ fn run_sqlite_thread(db_path: &Path, mut cmd_rx: mpsc::UnboundedReceiver<EntityC
                 let result = get_hierarchy_db(&conn, root_id.as_deref());
                 let _ = reply.send(result);
             }
-            EntityCmd::FindBySqlFilter { sql, params, reply } => {
-                let result = find_by_sql_filter_db(&conn, &sql, &params);
-                let _ = reply.send(result);
-            }
         }
     }
-}
-
-fn find_by_sql_filter_db(
-    conn: &rusqlite::Connection,
-    where_clause: &str,
-    params: &[serde_json::Value],
-) -> Vec<Entity> {
-    let full_sql = format!("SELECT e.id FROM entity e WHERE {where_clause} ORDER BY e.dis");
-    let mut stmt = match conn.prepare(&full_sql) {
-        Ok(s) => s,
-        Err(_) => return Vec::new(),
-    };
-    // Map serde_json::Value → rusqlite::types::Value
-    let typed: Vec<rusqlite::types::Value> = params
-        .iter()
-        .map(|v| match v {
-            serde_json::Value::String(s) => rusqlite::types::Value::Text(s.clone()),
-            serde_json::Value::Bool(b) => rusqlite::types::Value::Integer(if *b { 1 } else { 0 }),
-            serde_json::Value::Number(n) => {
-                if let Some(i) = n.as_i64() {
-                    rusqlite::types::Value::Integer(i)
-                } else if let Some(f) = n.as_f64() {
-                    rusqlite::types::Value::Real(f)
-                } else {
-                    rusqlite::types::Value::Null
-                }
-            }
-            serde_json::Value::Null => rusqlite::types::Value::Null,
-            other => rusqlite::types::Value::Text(other.to_string()),
-        })
-        .collect();
-    let param_refs: Vec<&dyn rusqlite::types::ToSql> =
-        typed.iter().map(|v| v as &dyn rusqlite::types::ToSql).collect();
-    let ids: Vec<String> = match stmt.query_map(param_refs.as_slice(), |row| row.get::<_, String>(0)) {
-        Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-        Err(_) => return Vec::new(),
-    };
-    ids.iter()
-        .filter_map(|id| get_entity_db(conn, id).ok())
-        .collect()
 }
 
 // ----------------------------------------------------------------

@@ -25,7 +25,6 @@ use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use super::auth;
-use super::haystack_state::StoreAdapter;
 use super::ws;
 use super::ApiState;
 
@@ -218,23 +217,13 @@ pub fn build_router(state: ApiState) -> Router {
     // WebSocket
     let api = api.route("/ws", get(ws::ws_handler));
 
-    // Bind ApiState onto the api router so it can compose with the
-    // independently-stated Haystack router below.
-    let api = api.with_state(state.clone());
-
-    // Haystack 5 facade: standard /api/haystack/* ops backed by the same
-    // EntityStore / PointStore / HistoryStore / OverrideStore. Mounted at
-    // the same /api prefix so it's reachable as /api/haystack/about, etc.
-    let haystack_adapter = StoreAdapter::from_api_state(&state);
-    let haystack_router = bms_haystack::server::router(haystack_adapter);
-
     Router::new()
         .nest("/api", api)
-        .nest("/api/haystack", haystack_router)
         .layer(DefaultBodyLimit::max(1_048_576)) // 1 MB
         .layer(middleware::from_fn(security_headers))
         .layer(TraceLayer::new_for_http())
         .layer(cors)
+        .with_state(state)
 }
 
 #[derive(Clone)]
