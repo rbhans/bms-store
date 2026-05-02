@@ -82,6 +82,63 @@ pub async fn accept_device(
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
+/// GET /api/discovery/devices/:id/preview-tags — dry-run the tags
+/// `accept_device` would apply, with source + confidence per row.
+/// Lets the GUI show a "Preview Tags" modal before commit so wrong
+/// suggestions can be overridden up front.
+pub async fn preview_device_tags(
+    State(state): State<ApiState>,
+    auth: AuthUser,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let perms = state.user_store.get_all_role_permissions().await;
+    require_permission(&auth, Permission::ManageDiscovery, &perms)?;
+
+    let preview = state
+        .discovery_service
+        .preview_device_tags(&id)
+        .await
+        .map_err(ApiError::Internal)?;
+
+    Ok(Json(serde_json::json!({
+        "device_id": preview.device_id,
+        "device_dis": preview.device_dis,
+        "equip": {
+            "tags": tags_to_json(&preview.equip_tags),
+            "source": tag_source_str(preview.equip_source),
+            "confidence": preview.equip_confidence,
+        },
+        "points": preview.points.iter().map(|p| serde_json::json!({
+            "point_id": p.point_id,
+            "point_dis": p.point_dis,
+            "units": p.units,
+            "tags": tags_to_json(&p.tags),
+            "source": tag_source_str(p.source),
+            "confidence": p.confidence,
+        })).collect::<Vec<_>>(),
+    })))
+}
+
+fn tags_to_json(tags: &[(String, Option<String>)]) -> serde_json::Value {
+    serde_json::Value::Array(
+        tags.iter()
+            .map(|(name, val)| {
+                serde_json::json!({
+                    "name": name,
+                    "value": val,
+                })
+            })
+            .collect(),
+    )
+}
+
+fn tag_source_str(s: bms_store_bridges::discovery::service::TagSource) -> &'static str {
+    match s {
+        bms_store_bridges::discovery::service::TagSource::Atlas => "atlas",
+        bms_store_bridges::discovery::service::TagSource::Heuristic => "heuristic",
+    }
+}
+
 /// POST /api/discovery/devices/:id/ignore
 pub async fn ignore_device(
     State(state): State<ApiState>,

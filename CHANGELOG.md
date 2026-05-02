@@ -1,3 +1,42 @@
+# bms-store CHANGELOG
+
+## Unreleased — ease-of-use polish
+
+Backend wins for the operator-facing GUI surface. No GUI changes yet —
+GUI work tracks these in a follow-on.
+
+### Added
+
+- **`Event::Toast { level, message, detail, source }`** in `bms-core`. Use
+  `Event::toast(level, source, message)` to emit operator-visible alerts
+  through the existing event bus. BACnet scan failures now publish one.
+- **Bulk entity ops (one SQLite transaction each):**
+  - `EntityStore::set_tags_batch(ids, tags)` — apply N tags to M entities
+  - `EntityStore::remove_tags_batch(ids, tag_names)`
+  - `EntityStore::set_ref_batch(ids, ref_tag, target)` — assign N entities
+    to one parent (e.g. 50 points to one AHU)
+- **REST endpoints for bulk ops:**
+  - `POST /api/entities/tags-batch`
+  - `POST /api/entities/tags-batch/remove`
+  - `POST /api/entities/refs-batch`
+- **Auto-tag dry-run:**
+  - `DiscoveryService::preview_device_tags(id)` returns the tags
+    `accept_device` would apply, with `source` (atlas / heuristic) +
+    `confidence` per row, **without writing to storage**.
+  - `DiscoveryService::accept_device_with_options(id, AcceptOptions)` —
+    new opt-in entry point; current default matches old `accept_device`.
+  - `GET /api/discovery/devices/{id}/preview-tags` exposes it over REST.
+- **Top-level `README.md`** with quick-start + crate map.
+- **Top-level `CHANGELOG.md`** (formerly `crates/bms-store-gui/PR_SUMMARY.md`).
+
+### Removed (data-layer trim, see "Ease-of-use audit" notes)
+
+- bms-haystack stripped to ontology + auto-tag only — codecs, HTTP facade,
+  filter parser, runtime xeto loader, schema validator deleted. Lives in
+  git history at commit `befdb12` and earlier on `main` if ever needed.
+
+---
+
 # bms-store GUI — PR Summary (v0.2.0)
 
 Trims bms-store from a full BMS app to a pure universal data layer per

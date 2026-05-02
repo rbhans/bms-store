@@ -118,6 +118,31 @@ pub enum Event {
         reason: QualityReason,
         affected_device_count: usize,
     },
+    /// Operator-facing notification — surfaces in the GUI as a toast banner.
+    ///
+    /// Use this for failures and important state changes that the operator
+    /// would otherwise only see in the log file (bridge errors, scan
+    /// failures, config-write failures, etc.). Consumers subscribe to the
+    /// event bus and route Toast events into their UI's notification queue.
+    Toast {
+        level: ToastLevel,
+        /// Short single-line message (≤120 chars). Goes in the toast title.
+        message: String,
+        /// Optional longer body shown when the toast is expanded.
+        detail: Option<String>,
+        /// Subsystem that emitted this — `"bridge.bacnet"`, `"discovery"`,
+        /// `"storage"`, etc. Lets the GUI group/filter by source.
+        source: String,
+    },
+}
+
+/// Severity for [`Event::Toast`] notifications.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToastLevel {
+    Info,
+    Warn,
+    Error,
 }
 
 impl Event {
@@ -140,6 +165,34 @@ impl Event {
             Event::FddFaultCleared { .. } => "FddFaultCleared",
             Event::QualityChanged { .. } => "QualityChanged",
             Event::BridgeQualityChanged { .. } => "BridgeQualityChanged",
+            Event::Toast { .. } => "Toast",
+        }
+    }
+}
+
+impl Event {
+    /// Convenience for emitting a Toast event with no detail body.
+    pub fn toast(level: ToastLevel, source: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::Toast {
+            level,
+            message: message.into(),
+            detail: None,
+            source: source.into(),
+        }
+    }
+
+    /// Convenience for emitting a Toast event with a detail body.
+    pub fn toast_with_detail(
+        level: ToastLevel,
+        source: impl Into<String>,
+        message: impl Into<String>,
+        detail: impl Into<String>,
+    ) -> Self {
+        Self::Toast {
+            level,
+            message: message.into(),
+            detail: Some(detail.into()),
+            source: source.into(),
         }
     }
 }

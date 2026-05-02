@@ -214,3 +214,75 @@ pub async fn get_relationship_issues(
     let issues = validate_relationships(&state.entity_store).await;
     Json(issues.into_iter().map(issue_to_response).collect())
 }
+
+// ---------------------------------------------------------------------------
+// Bulk endpoints — drive the GUI's multi-select actions in one round trip
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+pub struct BatchTagsRequest {
+    pub entity_ids: Vec<String>,
+    /// Pairs of (tag_name, optional_value). Marker tags use `null` for value.
+    pub tags: Vec<(String, Option<String>)>,
+}
+
+#[derive(Serialize)]
+pub struct BatchOpResponse {
+    pub updated: usize,
+}
+
+/// POST /api/entities/tags-batch — apply the same set of tags to many entities.
+pub async fn set_tags_batch(
+    State(state): State<ApiState>,
+    _auth: AuthUser,
+    Json(req): Json<BatchTagsRequest>,
+) -> Result<Json<BatchOpResponse>, ApiError> {
+    let updated = state
+        .entity_store
+        .set_tags_batch(req.entity_ids, req.tags)
+        .await
+        .map_err(|e: EntityError| ApiError::Internal(e.to_string()))?;
+    Ok(Json(BatchOpResponse { updated }))
+}
+
+#[derive(Deserialize)]
+pub struct BatchRemoveTagsRequest {
+    pub entity_ids: Vec<String>,
+    pub tag_names: Vec<String>,
+}
+
+/// POST /api/entities/tags-batch/remove — remove the same set of tags from many entities.
+pub async fn remove_tags_batch(
+    State(state): State<ApiState>,
+    _auth: AuthUser,
+    Json(req): Json<BatchRemoveTagsRequest>,
+) -> Result<Json<BatchOpResponse>, ApiError> {
+    let updated = state
+        .entity_store
+        .remove_tags_batch(req.entity_ids, req.tag_names)
+        .await
+        .map_err(|e: EntityError| ApiError::Internal(e.to_string()))?;
+    Ok(Json(BatchOpResponse { updated }))
+}
+
+#[derive(Deserialize)]
+pub struct BatchRefRequest {
+    pub source_ids: Vec<String>,
+    pub ref_tag: String,
+    pub target_id: String,
+}
+
+/// POST /api/entities/refs-batch — set the same ref on many source entities
+/// (e.g. assign 50 points to one parent equipment in one shot).
+pub async fn set_ref_batch(
+    State(state): State<ApiState>,
+    _auth: AuthUser,
+    Json(req): Json<BatchRefRequest>,
+) -> Result<Json<BatchOpResponse>, ApiError> {
+    let updated = state
+        .entity_store
+        .set_ref_batch(req.source_ids, &req.ref_tag, &req.target_id)
+        .await
+        .map_err(|e: EntityError| ApiError::Internal(e.to_string()))?;
+    Ok(Json(BatchOpResponse { updated }))
+}

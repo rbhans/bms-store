@@ -88,6 +88,10 @@ pub fn build_router(state: ApiState) -> Router {
         .route("/entities/{id}/supply-chain", get(entities::get_supply_chain))
         .route("/entities/{id}/return-chain", get(entities::get_return_chain))
         .route("/relationships/issues", get(entities::get_relationship_issues))
+        // Bulk endpoints — drive multi-select GUI actions in one round trip
+        .route("/entities/tags-batch", post(entities::set_tags_batch))
+        .route("/entities/tags-batch/remove", post(entities::remove_tags_batch))
+        .route("/entities/refs-batch", post(entities::set_ref_batch))
         // Points
         .route("/points", get(points::list_points))
         .route("/points/{device_id}", get(points::device_points))
@@ -130,6 +134,10 @@ pub fn build_router(state: ApiState) -> Router {
         .route(
             "/discovery/devices/{id}/accept",
             post(discovery::accept_device),
+        )
+        .route(
+            "/discovery/devices/{id}/preview-tags",
+            get(discovery::preview_device_tags),
         )
         .route(
             "/discovery/devices/{id}/ignore",

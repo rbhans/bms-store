@@ -25,6 +25,47 @@ use crate::store::entity_store::EntityStore;
 use crate::store::node_store::NodeStore;
 use crate::store::point_store::{PointKey, PointStore};
 
+/// Source of a tag suggestion in the dry-run preview.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TagSource {
+    /// Atlas naming-hint engine matched a curated equipment / point alias.
+    Atlas,
+    /// Hand-coded keyword + unit heuristic in `bms-haystack::auto_tag`.
+    Heuristic,
+}
+
+/// Tags `accept_device` would apply to a single point.
+#[derive(Debug, Clone)]
+pub struct PointTagPreview {
+    pub point_id: String,
+    pub point_dis: String,
+    pub units: Option<String>,
+    pub tags: Vec<(String, Option<String>)>,
+    pub source: TagSource,
+    /// Coarse 0.0..=1.0 confidence — atlas inherits matcher score, heuristic is constant 0.4.
+    pub confidence: f32,
+}
+
+/// Tags `accept_device` would apply to a device + its points (dry-run).
+#[derive(Debug, Clone)]
+pub struct DeviceTagPreview {
+    pub device_id: String,
+    pub device_dis: String,
+    pub equip_tags: Vec<(String, Option<String>)>,
+    pub equip_source: TagSource,
+    pub equip_confidence: f32,
+    pub points: Vec<PointTagPreview>,
+}
+
+/// Knobs that customise an [`DiscoveryService::accept_device_with_options`] call.
+#[derive(Debug, Clone, Default)]
+pub struct AcceptOptions {
+    /// Reserved — when `true` will skip auto-tagging entirely. Currently a
+    /// no-op; auto-tag still runs.
+    pub skip_auto_tag: bool,
+}
+
 /// Central orchestrator for device discovery and acceptance.
 /// Observes bridges — does not replace them.
 pub struct DiscoveryService {
@@ -112,6 +153,12 @@ impl DiscoveryService {
             }
             Err(e) => {
                 tracing::error!(network_id, "Discovery: BACnet rescan error: {e}");
+                self.event_bus.publish(bms_core::Event::toast_with_detail(
+                    bms_core::ToastLevel::Error,
+                    "discovery.bacnet",
+                    format!("BACnet scan failed on network `{network_id}`"),
+                    e.to_string(),
+                ));
                 self.store.finish_scan(scan_id, 0).await;
                 self.event_bus.publish(Event::DiscoveryScanComplete {
                     protocol: "bacnet".into(),
@@ -409,8 +456,158 @@ impl DiscoveryService {
         }
     }
 
+    /// Compute the tags `accept_device` would apply, **without writing
+    /// anything to storage**. Lets the GUI render a preview / dry-run modal
+    /// so the operator can confirm or override before commit.
+    ///
+    /// Each suggestion reports its `source` (`"atlas"` or `"heuristic"`)
+    /// and a coarse `confidence` value (0.0..=1.0). Atlas matches inherit
+    /// the matcher's score; heuristic suggestions report a constant 0.4
+    /// (low — the heuristic engine has no real notion of confidence).
+    pub async fn preview_device_tags(
+        &self,
+        device_id: &str,
+    ) -> Result<DeviceTagPreview, String> {
+        let device = self
+            .store
+            .get_device(device_id)
+            .await
+            .map_err(|e| format!("Device not found: {e}"))?;
+        let points = self.store.get_points(device_id).await;
+        let provider = Haystack5Provider;
+
+        #[cfg(feature = "atlas")]
+        let atlas_snapshot: Option<Arc<crate::atlas::matcher::AtlasMatcher>> =
+            self.atlas_matcher.read().unwrap().clone();
+
+        // ---- equip ----
+        let (equip_tags, equip_source, equip_confidence) = {
+            #[cfg(feature = "atlas")]
+            {
+                if let Some(ref atlas) = atlas_snapshot {
+                    if let Some(m) = atlas.match_equipment(&device.display_name) {
+                        let tags =
+                            crate::atlas::matcher::AtlasMatcher::suggest_equip_tags(&m.equipment);
+                        (tags, TagSource::Atlas, m.confidence)
+                    } else {
+                        (
+                            suggest_equip_tags(&device.display_name, &provider),
+                            TagSource::Heuristic,
+                            0.4,
+                        )
+                    }
+                } else {
+                    (
+                        suggest_equip_tags(&device.display_name, &provider),
+                        TagSource::Heuristic,
+                        0.4,
+                    )
+                }
+            }
+            #[cfg(not(feature = "atlas"))]
+            {
+                (
+                    suggest_equip_tags(&device.display_name, &provider),
+                    TagSource::Heuristic,
+                    0.4f32,
+                )
+            }
+        };
+        let equip_tag_map: HashMap<String, Option<String>> =
+            equip_tags.iter().cloned().collect();
+
+        // ---- points ----
+        let mut point_previews = Vec::with_capacity(points.len());
+        for pt in &points {
+            let names: Vec<&str> = vec![&pt.id, &pt.display_name];
+            let (tags, source, confidence) = {
+                #[cfg(feature = "atlas")]
+                {
+                    if let Some(ref atlas) = atlas_snapshot {
+                        if let Some(m) = atlas.match_point(&names, pt.units.as_deref()) {
+                            (
+                                crate::atlas::matcher::AtlasMatcher::suggest_point_tags(&m.point),
+                                TagSource::Atlas,
+                                m.confidence,
+                            )
+                        } else {
+                            (
+                                suggest_point_tags_multi(
+                                    &names,
+                                    pt.units.as_deref(),
+                                    &equip_tag_map,
+                                    &provider,
+                                ),
+                                TagSource::Heuristic,
+                                0.4,
+                            )
+                        }
+                    } else {
+                        (
+                            suggest_point_tags_multi(
+                                &names,
+                                pt.units.as_deref(),
+                                &equip_tag_map,
+                                &provider,
+                            ),
+                            TagSource::Heuristic,
+                            0.4,
+                        )
+                    }
+                }
+                #[cfg(not(feature = "atlas"))]
+                {
+                    (
+                        suggest_point_tags_multi(
+                            &names,
+                            pt.units.as_deref(),
+                            &equip_tag_map,
+                            &provider,
+                        ),
+                        TagSource::Heuristic,
+                        0.4f32,
+                    )
+                }
+            };
+            point_previews.push(PointTagPreview {
+                point_id: pt.id.clone(),
+                point_dis: pt.display_name.clone(),
+                units: pt.units.clone(),
+                tags,
+                source,
+                confidence,
+            });
+        }
+
+        Ok(DeviceTagPreview {
+            device_id: device_id.to_string(),
+            device_dis: device.display_name.clone(),
+            equip_tags,
+            equip_source,
+            equip_confidence,
+            points: point_previews,
+        })
+    }
+
     /// Accept a discovered device — creates nodes + entities + tags in one pass.
+    /// See [`Self::accept_device_with_options`] to override defaults.
     pub async fn accept_device(&self, device_id: &str) -> Result<(), String> {
+        self.accept_device_with_options(device_id, AcceptOptions::default())
+            .await
+    }
+
+    /// Accept a discovered device with caller-supplied options. The default
+    /// invocation matches [`Self::accept_device`].
+    pub async fn accept_device_with_options(
+        &self,
+        device_id: &str,
+        opts: AcceptOptions,
+    ) -> Result<(), String> {
+        let _ = opts; // currently unused; reserved for skip_auto_tag etc.
+        self.accept_device_inner(device_id).await
+    }
+
+    async fn accept_device_inner(&self, device_id: &str) -> Result<(), String> {
         let device = self
             .store
             .get_device(device_id)

@@ -118,6 +118,31 @@ enum EntityCmd {
         root_id: Option<EntityId>,
         reply: oneshot::Sender<Vec<Entity>>,
     },
+
+    /// Apply the same set of (tag_name, tag_value) entries to many entities
+    /// in a single SQLite transaction. Order-preserving and idempotent —
+    /// existing tags with the same name are overwritten.
+    SetTagsBatch {
+        entity_ids: Vec<EntityId>,
+        tags: Vec<(String, Option<String>)>,
+        reply: oneshot::Sender<Result<usize, EntityError>>,
+    },
+
+    /// Remove the same set of tags from many entities in one transaction.
+    RemoveTagsBatch {
+        entity_ids: Vec<EntityId>,
+        tag_names: Vec<String>,
+        reply: oneshot::Sender<Result<usize, EntityError>>,
+    },
+
+    /// Set the same `(ref_tag, target_id)` on many source entities in one
+    /// transaction. Used by the GUI's "Assign N points to Equipment" action.
+    SetRefBatch {
+        source_ids: Vec<EntityId>,
+        ref_tag: String,
+        target_id: EntityId,
+        reply: oneshot::Sender<Result<usize, EntityError>>,
+    },
 }
 
 // ----------------------------------------------------------------
@@ -330,6 +355,74 @@ impl EntityStore {
     }
 
     // Ref operations
+
+    /// Apply `tags` to every entity in `entity_ids` (single SQLite transaction).
+    /// Returns the number of entities updated.
+    pub async fn set_tags_batch(
+        &self,
+        entity_ids: Vec<String>,
+        tags: Vec<(String, Option<String>)>,
+    ) -> Result<usize, EntityError> {
+        let (reply_tx, reply_rx) = oneshot::channel();
+        self.cmd_tx
+            .send(EntityCmd::SetTagsBatch {
+                entity_ids,
+                tags,
+                reply: reply_tx,
+            })
+            .map_err(|_| EntityError::ChannelClosed)?;
+        let result = reply_rx.await.map_err(|_| EntityError::ChannelClosed)?;
+        if result.is_ok() {
+            self.bump_version();
+        }
+        result
+    }
+
+    /// Remove every tag in `tag_names` from every entity in `entity_ids`
+    /// (single SQLite transaction). Returns the number of entities updated.
+    pub async fn remove_tags_batch(
+        &self,
+        entity_ids: Vec<String>,
+        tag_names: Vec<String>,
+    ) -> Result<usize, EntityError> {
+        let (reply_tx, reply_rx) = oneshot::channel();
+        self.cmd_tx
+            .send(EntityCmd::RemoveTagsBatch {
+                entity_ids,
+                tag_names,
+                reply: reply_tx,
+            })
+            .map_err(|_| EntityError::ChannelClosed)?;
+        let result = reply_rx.await.map_err(|_| EntityError::ChannelClosed)?;
+        if result.is_ok() {
+            self.bump_version();
+        }
+        result
+    }
+
+    /// Set the same `(ref_tag, target_id)` on every entity in `source_ids`
+    /// (single SQLite transaction). Returns the number of entities updated.
+    pub async fn set_ref_batch(
+        &self,
+        source_ids: Vec<String>,
+        ref_tag: &str,
+        target_id: &str,
+    ) -> Result<usize, EntityError> {
+        let (reply_tx, reply_rx) = oneshot::channel();
+        self.cmd_tx
+            .send(EntityCmd::SetRefBatch {
+                source_ids,
+                ref_tag: ref_tag.to_string(),
+                target_id: target_id.to_string(),
+                reply: reply_tx,
+            })
+            .map_err(|_| EntityError::ChannelClosed)?;
+        let result = reply_rx.await.map_err(|_| EntityError::ChannelClosed)?;
+        if result.is_ok() {
+            self.bump_version();
+        }
+        result
+    }
 
     pub async fn set_ref(
         &self,
@@ -585,8 +678,138 @@ fn run_sqlite_thread(db_path: &Path, mut cmd_rx: mpsc::UnboundedReceiver<EntityC
                 let result = get_hierarchy_db(&conn, root_id.as_deref());
                 let _ = reply.send(result);
             }
+            EntityCmd::SetTagsBatch {
+                entity_ids,
+                tags,
+                reply,
+            } => {
+                let result = set_tags_batch_db(&conn, &entity_ids, &tags);
+                let _ = reply.send(result);
+            }
+            EntityCmd::RemoveTagsBatch {
+                entity_ids,
+                tag_names,
+                reply,
+            } => {
+                let result = remove_tags_batch_db(&conn, &entity_ids, &tag_names);
+                let _ = reply.send(result);
+            }
+            EntityCmd::SetRefBatch {
+                source_ids,
+                ref_tag,
+                target_id,
+                reply,
+            } => {
+                let result = set_ref_batch_db(&conn, &source_ids, &ref_tag, &target_id);
+                let _ = reply.send(result);
+            }
         }
     }
+}
+
+fn set_tags_batch_db(
+    conn: &rusqlite::Connection,
+    entity_ids: &[String],
+    tags: &[(String, Option<String>)],
+) -> Result<usize, EntityError> {
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| EntityError::Db(e.to_string()))?;
+    let mut updated = 0usize;
+    {
+        let mut tag_stmt = tx
+            .prepare(
+                "INSERT OR REPLACE INTO entity_tag (entity_id, tag_name, tag_value) VALUES (?1, ?2, ?3)",
+            )
+            .map_err(|e| EntityError::Db(e.to_string()))?;
+        let mut touch_stmt = tx
+            .prepare("UPDATE entity SET updated_ms = ?1 WHERE id = ?2")
+            .map_err(|e| EntityError::Db(e.to_string()))?;
+        let now = now_ms();
+        for id in entity_ids {
+            let mut wrote_any = false;
+            for (name, value) in tags {
+                tag_stmt
+                    .execute(rusqlite::params![id, name, value.as_deref()])
+                    .map_err(|e| EntityError::Db(e.to_string()))?;
+                wrote_any = true;
+            }
+            if wrote_any {
+                touch_stmt
+                    .execute(rusqlite::params![now, id])
+                    .map_err(|e| EntityError::Db(e.to_string()))?;
+                updated += 1;
+            }
+        }
+    }
+    tx.commit().map_err(|e| EntityError::Db(e.to_string()))?;
+    Ok(updated)
+}
+
+fn remove_tags_batch_db(
+    conn: &rusqlite::Connection,
+    entity_ids: &[String],
+    tag_names: &[String],
+) -> Result<usize, EntityError> {
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| EntityError::Db(e.to_string()))?;
+    let mut updated = 0usize;
+    {
+        let mut del_stmt = tx
+            .prepare("DELETE FROM entity_tag WHERE entity_id = ?1 AND tag_name = ?2")
+            .map_err(|e| EntityError::Db(e.to_string()))?;
+        let mut touch_stmt = tx
+            .prepare("UPDATE entity SET updated_ms = ?1 WHERE id = ?2")
+            .map_err(|e| EntityError::Db(e.to_string()))?;
+        let now = now_ms();
+        for id in entity_ids {
+            for name in tag_names {
+                let _ = del_stmt
+                    .execute(rusqlite::params![id, name])
+                    .map_err(|e| EntityError::Db(e.to_string()))?;
+            }
+            touch_stmt
+                .execute(rusqlite::params![now, id])
+                .map_err(|e| EntityError::Db(e.to_string()))?;
+            updated += 1;
+        }
+    }
+    tx.commit().map_err(|e| EntityError::Db(e.to_string()))?;
+    Ok(updated)
+}
+
+fn set_ref_batch_db(
+    conn: &rusqlite::Connection,
+    source_ids: &[String],
+    ref_tag: &str,
+    target_id: &str,
+) -> Result<usize, EntityError> {
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| EntityError::Db(e.to_string()))?;
+    let mut updated = 0usize;
+    {
+        let mut stmt = tx
+            .prepare(
+                "INSERT OR REPLACE INTO entity_ref (source_id, ref_tag, target_id) VALUES (?1, ?2, ?3)",
+            )
+            .map_err(|e| EntityError::Db(e.to_string()))?;
+        let mut touch_stmt = tx
+            .prepare("UPDATE entity SET updated_ms = ?1 WHERE id = ?2")
+            .map_err(|e| EntityError::Db(e.to_string()))?;
+        let now = now_ms();
+        for id in source_ids {
+            stmt.execute(rusqlite::params![id, ref_tag, target_id])
+                .map_err(|e| EntityError::Db(e.to_string()))?;
+            touch_stmt
+                .execute(rusqlite::params![now, id])
+                .map_err(|e| EntityError::Db(e.to_string()))?;
+            updated += 1;
+        }
+    }
+    tx.commit().map_err(|e| EntityError::Db(e.to_string()))?;
+    Ok(updated)
 }
 
 // ----------------------------------------------------------------
@@ -1316,5 +1539,89 @@ mod tests {
         assert!(e.tags.contains_key("air"));
 
         std::fs::remove_file("/tmp/test_entity_prototype.db").ok();
+    }
+
+    #[tokio::test]
+    async fn batch_set_tags_and_remove_tags() {
+        let store = test_store("/tmp/test_entity_batch_tags.db");
+
+        // Seed three points
+        for id in ["p1", "p2", "p3"] {
+            store
+                .create_entity(id, "point", id, None, vec![("point".into(), None)])
+                .await
+                .unwrap();
+        }
+
+        // Apply (sensor + temp) to all three in one transaction
+        let n = store
+            .set_tags_batch(
+                vec!["p1".into(), "p2".into(), "p3".into()],
+                vec![("sensor".into(), None), ("temp".into(), None)],
+            )
+            .await
+            .unwrap();
+        assert_eq!(n, 3);
+        for id in ["p1", "p2", "p3"] {
+            let e = store.get_entity(id).await.unwrap();
+            assert!(e.tags.contains_key("sensor"));
+            assert!(e.tags.contains_key("temp"));
+        }
+
+        // Remove temp from all three
+        let n = store
+            .remove_tags_batch(
+                vec!["p1".into(), "p2".into(), "p3".into()],
+                vec!["temp".into()],
+            )
+            .await
+            .unwrap();
+        assert_eq!(n, 3);
+        for id in ["p1", "p2", "p3"] {
+            let e = store.get_entity(id).await.unwrap();
+            assert!(!e.tags.contains_key("temp"));
+            assert!(e.tags.contains_key("sensor"), "sensor should remain");
+        }
+
+        std::fs::remove_file("/tmp/test_entity_batch_tags.db").ok();
+    }
+
+    #[tokio::test]
+    async fn batch_set_ref_assigns_many_to_one_parent() {
+        let store = test_store("/tmp/test_entity_batch_ref.db");
+
+        // Parent equip
+        store
+            .create_entity("ahu-1", "equip", "AHU-1", None, vec![("equip".into(), None)])
+            .await
+            .unwrap();
+        // Children
+        for id in ["pt-1", "pt-2", "pt-3", "pt-4"] {
+            store
+                .create_entity(id, "point", id, None, vec![("point".into(), None)])
+                .await
+                .unwrap();
+        }
+
+        // Assign all four points to ahu-1 in one transaction
+        let n = store
+            .set_ref_batch(
+                vec!["pt-1".into(), "pt-2".into(), "pt-3".into(), "pt-4".into()],
+                "equipRef",
+                "ahu-1",
+            )
+            .await
+            .unwrap();
+        assert_eq!(n, 4);
+
+        // Verify
+        for id in ["pt-1", "pt-2", "pt-3", "pt-4"] {
+            let e = store.get_entity(id).await.unwrap();
+            assert_eq!(e.refs.get("equipRef").map(String::as_str), Some("ahu-1"));
+        }
+        let children = store.get_entities_by_ref("equipRef", "ahu-1").await;
+        assert_eq!(children.len(), 4);
+
+        std::fs::remove_file("/tmp/test_entity_batch_ref.db").ok();
     }
 }
