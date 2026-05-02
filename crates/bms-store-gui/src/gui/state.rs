@@ -280,6 +280,20 @@ pub struct AppState {
     /// BAS Atlas taxonomy matcher — shared with DiscoveryService.
     /// Writing to this lock immediately affects the live DiscoveryService.
     pub atlas_lock: Arc<std::sync::RwLock<Option<Arc<bms_store_storage::atlas::matcher::AtlasMatcher>>>>,
+    /// Operator-facing toast queue — populated by an `Event::Toast` subscriber
+    /// in `app.rs` and rendered as a banner stack in the top-right.
+    pub toasts: Signal<Vec<ToastMessage>>,
+}
+
+/// One operator-facing notification — rendered as a single toast banner.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ToastMessage {
+    pub id: u64,
+    pub level: bms_core::ToastLevel,
+    pub message: String,
+    pub detail: Option<String>,
+    pub source: String,
+    pub created_ms: i64,
 }
 
 impl AppState {

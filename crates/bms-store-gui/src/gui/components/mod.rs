@@ -36,6 +36,7 @@ pub mod retention_view;
 pub mod relationships_section;
 pub mod sidebar;
 pub mod theme_settings;
+pub mod toast_banner;
 pub mod toolbar;
 pub mod user_management;
 pub mod virtual_points_view;

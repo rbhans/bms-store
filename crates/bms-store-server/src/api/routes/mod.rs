@@ -1,4 +1,5 @@
 pub mod audit;
+pub mod bridges;
 pub mod discovery;
 pub mod entities;
 pub mod export;
@@ -92,6 +93,22 @@ pub fn build_router(state: ApiState) -> Router {
         .route("/entities/tags-batch", post(entities::set_tags_batch))
         .route("/entities/tags-batch/remove", post(entities::remove_tags_batch))
         .route("/entities/refs-batch", post(entities::set_ref_batch))
+        // Bridge config — register/edit/delete BACnet networks + Modbus buses
+        // from the GUI instead of hand-editing scenario.json + restarting.
+        .route("/bridges/bacnet", get(bridges::list_bacnet).post(bridges::create_bacnet))
+        .route(
+            "/bridges/bacnet/{id}",
+            get(bridges::get_bacnet)
+                .put(bridges::update_bacnet)
+                .delete(bridges::delete_bacnet),
+        )
+        .route("/bridges/modbus", get(bridges::list_modbus).post(bridges::create_modbus))
+        .route(
+            "/bridges/modbus/{id}",
+            get(bridges::get_modbus)
+                .put(bridges::update_modbus)
+                .delete(bridges::delete_modbus),
+        )
         // Points
         .route("/points", get(points::list_points))
         .route("/points/{device_id}", get(points::device_points))

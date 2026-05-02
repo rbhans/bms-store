@@ -2,14 +2,29 @@
 
 ## Unreleased — ease-of-use polish
 
-Backend wins for the operator-facing GUI surface. No GUI changes yet —
-GUI work tracks these in a follow-on.
+Backend foundations + first GUI wiring for the operator-facing surface.
 
 ### Added
 
 - **`Event::Toast { level, message, detail, source }`** in `bms-core`. Use
   `Event::toast(level, source, message)` to emit operator-visible alerts
   through the existing event bus. BACnet scan failures now publish one.
+- **GUI toast banner** — `ToastBanner` component subscribes to
+  `Event::Toast`, stacks notifications top-right, auto-dismisses Info/Warn
+  after 6s, sticks Error until dismissed. Mounted globally in `app.rs`.
+- **Bridge config CRUD store** — new `BridgeStore`
+  (`bms-store-storage::store::bridge_store`) holds BACnet network +
+  Modbus bus configs in SQLite. Lets the GUI register/edit/delete
+  bridges instead of hand-editing `scenario.json` and restarting.
+  Mutations emit a `Toast(Warn, "restart bms-store to activate")`.
+- **REST endpoints for bridge config:**
+  - `GET/POST   /api/bridges/bacnet`
+  - `GET/PUT/DELETE /api/bridges/bacnet/{id}`
+  - `GET/POST   /api/bridges/modbus`
+  - `GET/PUT/DELETE /api/bridges/modbus/{id}`
+- **Audit actions** — `CreateBacnetNetwork`, `UpdateBacnetNetwork`,
+  `DeleteBacnetNetwork`, `CreateModbusBus`, `UpdateModbusBus`,
+  `DeleteModbusBus`.
 - **Bulk entity ops (one SQLite transaction each):**
   - `EntityStore::set_tags_batch(ids, tags)` — apply N tags to M entities
   - `EntityStore::remove_tags_batch(ids, tag_names)`

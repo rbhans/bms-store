@@ -417,6 +417,7 @@ pub(crate) fn ProjectApp(
         pending_config_section,
         sidebar_visible,
         atlas_lock: plat.atlas_lock.clone(),
+        toasts: Signal::new(Vec::new()),
     });
     use_context_provider(|| app_state.clone());
 
@@ -486,6 +487,54 @@ pub(crate) fn ProjectApp(
                         result = rx.changed() => {
                             if result.is_err() { break; }
                             node_version.set(*rx.borrow());
+                        }
+                    }
+                }
+            });
+        });
+    }
+
+    // Toast subscriber — listens for `Event::Toast` on the platform event
+    // bus and pushes them onto `app_state.toasts` so the banner stack in
+    // the toolbar can render + auto-dismiss them.
+    {
+        let toast_bus = event_bus.clone();
+        let toast_shutdown = view_shutdown.clone();
+        let mut toasts_signal = app_state.toasts;
+        use_hook(move || {
+            spawn(async move {
+                let mut rx = toast_bus.subscribe();
+                let mut next_id: u64 = 1;
+                loop {
+                    tokio::select! {
+                        _ = toast_shutdown.cancelled() => break,
+                        result = rx.recv() => {
+                            let Ok(arc_event) = result else { break };
+                            if let bms_core::Event::Toast {
+                                level, message, detail, source,
+                            } = arc_event.as_ref() {
+                                let now = std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .map(|d| d.as_millis() as i64)
+                                    .unwrap_or(0);
+                                let msg = crate::gui::state::ToastMessage {
+                                    id: next_id,
+                                    level: *level,
+                                    message: message.clone(),
+                                    detail: detail.clone(),
+                                    source: source.clone(),
+                                    created_ms: now,
+                                };
+                                next_id = next_id.wrapping_add(1);
+                                let mut current = toasts_signal.read().clone();
+                                current.push(msg);
+                                // Cap total queued toasts so a flood doesn't blow memory.
+                                if current.len() > 20 {
+                                    let drop_n = current.len() - 20;
+                                    current.drain(0..drop_n);
+                                }
+                                toasts_signal.set(current);
+                            }
                         }
                     }
                 }
@@ -615,6 +664,8 @@ pub(crate) fn ProjectApp(
 
     rsx! {
         div { class: "app-shell",
+            crate::gui::components::toast_banner::ToastBanner {}
+
             Toolbar {
                 on_close_project: move |action: CloseAction| {
                     on_close.call(action);

@@ -21,6 +21,7 @@ use bms_store_storage::event::journal::EventJournal;
 use bms_store_storage::health::HealthRegistry;
 use bms_store_storage::logic::store::ProgramStore;
 use bms_store_storage::store::audit_store::AuditStore;
+use bms_store_storage::store::bridge_store::BridgeStore;
 use bms_store_storage::store::discovery_store::DiscoveryStore;
 use bms_store_storage::store::entity_store::EntityStore;
 use bms_store_storage::store::export_store::ExportStore;
@@ -92,6 +93,7 @@ pub struct ApiState {
     pub audit_store: AuditStore,
     pub program_store: ProgramStore,
     pub override_store: OverrideStore,
+    pub bridge_store: BridgeStore,
     pub event_bus: EventBus,
     pub event_journal: Option<EventJournal>,
     pub bridge_registry: Arc<BridgeRegistry>,
@@ -125,6 +127,7 @@ impl ApiState {
             audit_store: storage.audit_store.clone(),
             program_store: storage.program_store.clone(),
             override_store: storage.override_store.clone(),
+            bridge_store: storage.bridge_store.clone(),
             event_bus: storage.event_bus.clone(),
             event_journal: storage.event_journal.clone(),
             bridge_registry: bridges.bridge_registry.clone(),

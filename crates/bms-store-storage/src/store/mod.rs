@@ -1,4 +1,5 @@
 pub mod audit_store;
+pub mod bridge_store;
 pub mod discovery_store;
 pub mod entity_store;
 pub mod export_store;

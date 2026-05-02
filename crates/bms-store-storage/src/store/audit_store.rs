@@ -78,6 +78,12 @@ pub enum AuditAction {
     UpdateCloudBridge,
     DeleteCloudBridge,
     TestCloudBridge,
+    CreateBacnetNetwork,
+    UpdateBacnetNetwork,
+    DeleteBacnetNetwork,
+    CreateModbusBus,
+    UpdateModbusBus,
+    DeleteModbusBus,
 }
 
 impl AuditAction {
@@ -151,6 +157,12 @@ impl AuditAction {
             Self::UpdateCloudBridge => "update_cloud_bridge",
             Self::DeleteCloudBridge => "delete_cloud_bridge",
             Self::TestCloudBridge => "test_cloud_bridge",
+            Self::CreateBacnetNetwork => "create_bacnet_network",
+            Self::UpdateBacnetNetwork => "update_bacnet_network",
+            Self::DeleteBacnetNetwork => "delete_bacnet_network",
+            Self::CreateModbusBus => "create_modbus_bus",
+            Self::UpdateModbusBus => "update_modbus_bus",
+            Self::DeleteModbusBus => "delete_modbus_bus",
         }
     }
 
@@ -224,6 +236,12 @@ impl AuditAction {
             Self::UpdateCloudBridge => "Update Cloud Bridge",
             Self::DeleteCloudBridge => "Delete Cloud Bridge",
             Self::TestCloudBridge => "Test Cloud Bridge",
+            Self::CreateBacnetNetwork => "Create BACnet Network",
+            Self::UpdateBacnetNetwork => "Update BACnet Network",
+            Self::DeleteBacnetNetwork => "Delete BACnet Network",
+            Self::CreateModbusBus => "Create Modbus Bus",
+            Self::UpdateModbusBus => "Update Modbus Bus",
+            Self::DeleteModbusBus => "Delete Modbus Bus",
         }
     }
 
@@ -297,6 +315,12 @@ impl AuditAction {
             "update_cloud_bridge" => Some(Self::UpdateCloudBridge),
             "delete_cloud_bridge" => Some(Self::DeleteCloudBridge),
             "test_cloud_bridge" => Some(Self::TestCloudBridge),
+            "create_bacnet_network" => Some(Self::CreateBacnetNetwork),
+            "update_bacnet_network" => Some(Self::UpdateBacnetNetwork),
+            "delete_bacnet_network" => Some(Self::DeleteBacnetNetwork),
+            "create_modbus_bus" => Some(Self::CreateModbusBus),
+            "update_modbus_bus" => Some(Self::UpdateModbusBus),
+            "delete_modbus_bus" => Some(Self::DeleteModbusBus),
             _ => None,
         }
     }
@@ -352,6 +376,12 @@ impl AuditAction {
             Self::UpdateCloudBridge,
             Self::DeleteCloudBridge,
             Self::TestCloudBridge,
+            Self::CreateBacnetNetwork,
+            Self::UpdateBacnetNetwork,
+            Self::DeleteBacnetNetwork,
+            Self::CreateModbusBus,
+            Self::UpdateModbusBus,
+            Self::DeleteModbusBus,
         ]
     }
 }

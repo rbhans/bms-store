@@ -18,6 +18,7 @@ use crate::store::naming_rule_store::{start_naming_rule_store_with_path, NamingR
 use crate::store::discovery_store::{
     start_conn_status_listener, start_discovery_store_with_path, DiscoveryStore,
 };
+use crate::store::bridge_store::{start_bridge_store_with_path, BridgeStore};
 use crate::store::entity_store::{start_entity_store_with_path, EntityStore};
 use crate::store::export_store::{start_export_store_with_path, ExportStore};
 use crate::store::history_store::{start_history_collector_with_path, HistoryStore};
@@ -45,6 +46,7 @@ pub struct StorageRuntime {
     pub entity_store: EntityStore,
     pub discovery_store: DiscoveryStore,
     pub program_store: ProgramStore,
+    pub bridge_store: BridgeStore,
     pub mqtt_store: MqttStore,
     pub webhook_store: WebhookStore,
     pub export_store: ExportStore,
@@ -125,6 +127,7 @@ pub async fn boot_project_with_shutdown(
     start_conn_status_listener(discovery_store.clone(), event_bus.clone(), shutdown.clone());
 
     let program_store = start_program_store_with_path(&paths.db_path("programs.db"));
+    let bridge_store = start_bridge_store_with_path(&paths.db_path("bridges.db"));
     let mqtt_store = start_mqtt_store_with_path(&paths.db_path("mqtt.db"));
     let webhook_store = start_webhook_store_with_path(&paths.db_path("webhooks.db"));
     let export_store = start_export_store_with_path(&paths.db_path("export.db"));
@@ -177,6 +180,7 @@ pub async fn boot_project_with_shutdown(
         entity_store,
         discovery_store,
         program_store,
+        bridge_store,
         mqtt_store,
         webhook_store,
         export_store,
