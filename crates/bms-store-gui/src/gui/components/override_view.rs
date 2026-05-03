@@ -113,9 +113,11 @@ pub fn OverrideView() -> Element {
                                 {
                                     let ov_id = ov.id;
                                     let store_rel = override_store.clone();
+                                    let registry = state.bridge_registry.clone();
                                     let device = ov.device_id.clone();
                                     let point = ov.point_id.clone();
                                     let val = ov.override_value.to_string();
+                                    let orig_value = ov.original_value.clone();
                                     let orig = ov.original_value
                                         .as_ref()
                                         .map(|v| v.to_string())
@@ -123,6 +125,9 @@ pub fn OverrideView() -> Element {
                                     let prio = ov.priority
                                         .map(|p| p.to_string())
                                         .unwrap_or_else(|| "—".into());
+                                    let priority_for_write = ov.priority;
+                                    let device_for_write = ov.device_id.clone();
+                                    let point_for_write = ov.point_id.clone();
                                     let by = ov.created_by.clone();
                                     let created = format_ms(ov.created_ms);
                                     let expires = ov.expires_ms
@@ -144,8 +149,31 @@ pub fn OverrideView() -> Element {
                                                     disabled: *releasing.read(),
                                                     onclick: move |_| {
                                                         let store = store_rel.clone();
+                                                        let registry = registry.clone();
+                                                        let orig_value = orig_value.clone();
+                                                        let device_for_write = device_for_write.clone();
+                                                        let point_for_write = point_for_write.clone();
                                                         spawn(async move {
                                                             releasing.set(true);
+                                                            // Re-assert the pre-override value at the same
+                                                            // priority. NOTE: this does not clear the BACnet
+                                                            // priority slot the same way a true relinquish
+                                                            // (NULL write) would — `route_relinquish` is a
+                                                            // TODO. For now this at least restores the live
+                                                            // value, vs. the prior bug where Release only
+                                                            // marked the store record inactive.
+                                                            if let Some(orig) = orig_value {
+                                                                if let Some(pv) = json_to_point_value(&orig) {
+                                                                    let _ = registry
+                                                                        .route_write(
+                                                                            &device_for_write,
+                                                                            &point_for_write,
+                                                                            pv,
+                                                                            priority_for_write,
+                                                                        )
+                                                                        .await;
+                                                                }
+                                                            }
                                                             match store.relinquish(ov_id).await {
                                                                 Ok(_) => {
                                                                     action_error.set(None);
@@ -252,4 +280,24 @@ fn days_to_ymd(mut days: u64) -> (u64, u64, u64) {
 
 fn is_leap(y: u64) -> bool {
     (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
+}
+
+/// Best-effort conversion from a JSON value (as stored in
+/// `Override::original_value`) to a `PointValue` that can be passed back
+/// to `BridgeRegistry::route_write` for release.
+fn json_to_point_value(v: &serde_json::Value) -> Option<bms_core::PointValue> {
+    use bms_core::PointValue;
+    match v {
+        serde_json::Value::Bool(b) => Some(PointValue::Bool(*b)),
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                Some(PointValue::Integer(i))
+            } else {
+                n.as_f64().map(PointValue::Float)
+            }
+        }
+        // Strings + null + complex types aren't representable by PointValue
+        // — caller skips the protocol write in those cases.
+        _ => None,
+    }
 }

@@ -14,9 +14,10 @@ use axum::response::IntoResponse;
 use axum::{Json, response::Response};
 use serde::{Deserialize, Serialize};
 
+use bms_store_storage::auth::Permission;
 use bms_store_storage::haystack::filter::{parse_filter, matches as filter_matches};
 use bms_store_storage::store::entity_store::{Entity, EntityError};
-use crate::api::auth::AuthUser;
+use crate::api::auth::{require_permission, AuthUser};
 use crate::api::error::ApiError;
 use crate::api::ApiState;
 use crate::store::relationships::{
@@ -234,9 +235,11 @@ pub struct BatchOpResponse {
 /// POST /api/entities/tags-batch — apply the same set of tags to many entities.
 pub async fn set_tags_batch(
     State(state): State<ApiState>,
-    _auth: AuthUser,
+    auth: AuthUser,
     Json(req): Json<BatchTagsRequest>,
 ) -> Result<Json<BatchOpResponse>, ApiError> {
+    let perms = state.user_store.get_all_role_permissions().await;
+    require_permission(&auth, Permission::ManageDiscovery, &perms)?;
     let updated = state
         .entity_store
         .set_tags_batch(req.entity_ids, req.tags)
@@ -254,9 +257,11 @@ pub struct BatchRemoveTagsRequest {
 /// POST /api/entities/tags-batch/remove — remove the same set of tags from many entities.
 pub async fn remove_tags_batch(
     State(state): State<ApiState>,
-    _auth: AuthUser,
+    auth: AuthUser,
     Json(req): Json<BatchRemoveTagsRequest>,
 ) -> Result<Json<BatchOpResponse>, ApiError> {
+    let perms = state.user_store.get_all_role_permissions().await;
+    require_permission(&auth, Permission::ManageDiscovery, &perms)?;
     let updated = state
         .entity_store
         .remove_tags_batch(req.entity_ids, req.tag_names)
@@ -276,9 +281,11 @@ pub struct BatchRefRequest {
 /// (e.g. assign 50 points to one parent equipment in one shot).
 pub async fn set_ref_batch(
     State(state): State<ApiState>,
-    _auth: AuthUser,
+    auth: AuthUser,
     Json(req): Json<BatchRefRequest>,
 ) -> Result<Json<BatchOpResponse>, ApiError> {
+    let perms = state.user_store.get_all_role_permissions().await;
+    require_permission(&auth, Permission::ManageDiscovery, &perms)?;
     let updated = state
         .entity_store
         .set_ref_batch(req.source_ids, &req.ref_tag, &req.target_id)

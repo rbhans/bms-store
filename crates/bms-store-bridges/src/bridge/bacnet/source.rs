@@ -144,14 +144,23 @@ impl crate::bridge::traits::PointSource for super::BacnetBridge {
     ) -> Result<(), BridgeError> {
         let tc = self.require_transport()?;
 
-        // Find the device and object
+        // Find the device and object. Discovery emits two key formats:
+        //   * default network: `bacnet-{instance}`
+        //   * other networks:  `bacnet-{network_id}-{instance}`
+        // Accept both so writes against a non-default-network point land
+        // on the correct device. Trend / poll / event loops also publish
+        // the network-qualified key for non-default networks.
+        let net_id = self.network_id.as_str();
         let (dev, obj) = self
             .devices
             .iter()
             .flat_map(|d| d.objects.iter().map(move |o| (d, o)))
             .find(|(d, o)| {
-                let dev_key = format!("bacnet-{}", d.device_id.instance());
-                dev_key == device_id && object_point_id(o) == point_id
+                let inst = d.device_id.instance();
+                let short_key = format!("bacnet-{inst}");
+                let qualified_key = format!("bacnet-{net_id}-{inst}");
+                (device_id == short_key || device_id == qualified_key)
+                    && object_point_id(o) == point_id
             })
             .ok_or_else(|| BridgeError::PointNotFound {
                 device_id: device_id.to_string(),

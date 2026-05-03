@@ -217,8 +217,12 @@ pub fn BackupView() -> Element {
                                                     .await;
                                                     match result {
                                                         Ok(Ok(())) => {
+                                                            // FIXME: project::import_project creates a NEW project
+                                                            // entry — it does not overwrite the running project's
+                                                            // stores. Be honest about that in the UI until the
+                                                            // restore-replaces-current-project flow is implemented.
                                                             status_msg.set(Some(
-                                                                "Restore complete. Please restart the application to reload data.".into()
+                                                                "Backup imported as a NEW project. Open the project launcher to switch to it. The current project is unchanged.".into()
                                                             ));
                                                             let next_v = version.read().wrapping_add(1);
                                                         version.set(next_v);

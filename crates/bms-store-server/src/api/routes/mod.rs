@@ -60,13 +60,21 @@ pub fn build_router(state: ApiState) -> Router {
         }
     };
 
-    // Auth routes with rate limiting (20 requests per 60 seconds)
-    let rate_limiter = AuthRateLimiter::new(20, Duration::from_secs(60));
-    let auth_routes = Router::new()
+    // Bruteforce limiter — only on the credential-accepting endpoints.
+    // Everything else (refresh, /me, api-key CRUD) is auth-token-gated
+    // already, and a global counter risked locking out legitimate
+    // refresh/me calls when bound to API-key polling traffic.
+    let credential_limiter = AuthRateLimiter::new(20, Duration::from_secs(60));
+    let credential_routes = Router::new()
         .route("/login", post(auth::login))
+        .route("/setup", post(auth::setup))
+        .layer(middleware::from_fn(move |req, next| {
+            let limiter = credential_limiter.clone();
+            async move { limiter.check(req, next).await }
+        }));
+    let session_routes = Router::new()
         .route("/refresh", post(auth::refresh))
         .route("/me", get(auth::me))
-        .route("/setup", post(auth::setup))
         .route(
             "/api-keys",
             get(auth::list_api_keys).post(auth::create_api_key),
@@ -74,11 +82,8 @@ pub fn build_router(state: ApiState) -> Router {
         .route(
             "/api-keys/{id}",
             put(auth::update_api_key).delete(auth::delete_api_key),
-        )
-        .layer(middleware::from_fn(move |req, next| {
-            let limiter = rate_limiter.clone();
-            async move { limiter.check(req, next).await }
-        }));
+        );
+    let auth_routes = Router::new().merge(credential_routes).merge(session_routes);
 
     let api = Router::new()
         .nest("/auth", auth_routes)

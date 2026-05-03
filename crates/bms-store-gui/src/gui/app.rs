@@ -594,6 +594,7 @@ pub(crate) fn ProjectApp(
     let write_rx_slot = write_rx.clone();
     let write_registry = bridge_registry.clone();
     let write_audit = audit_store.clone();
+    let write_overrides = override_store.clone();
     let write_user = current_user;
     use_hook(move || {
         spawn(async move {
@@ -601,6 +602,16 @@ pub(crate) fn ProjectApp(
             while let Some(cmd) = rx.recv().await {
                 let mut write_failed: Option<String> = None;
                 let resource_id = format!("{}/{}", cmd.device_id, cmd.point_id);
+
+                // Snapshot the current value BEFORE the write so we can store
+                // it as the override's `original_value` for relinquish/restore.
+                let original_key = PointKey {
+                    device_instance_id: cmd.device_id.clone(),
+                    point_id: cmd.point_id.clone(),
+                };
+                let original = write_store
+                    .get(&original_key)
+                    .and_then(|tv| serde_json::to_value(&tv.value).ok());
 
                 // Route write through bridge registry (tries all registered bridges)
                 match write_registry
@@ -623,8 +634,8 @@ pub(crate) fn ProjectApp(
                     }
                 }
 
-                // Audit log the write attempt
-                {
+                // Audit log + identity for override record
+                let (uid, uname) = {
                     use bms_store_storage::store::audit_store::{AuditAction, AuditEntryBuilder};
                     let user = write_user.read();
                     let (uid, uname) = match user.as_ref() {
@@ -643,7 +654,9 @@ pub(crate) fn ProjectApp(
                             .details(&details)
                     };
                     let _ = write_audit.log_action(&uid, &uname, builder).await;
-                }
+                    (uid, uname)
+                };
+                let _ = uid;
 
                 if write_failed.is_some() {
                     continue;
@@ -654,8 +667,28 @@ pub(crate) fn ProjectApp(
                     device_instance_id: cmd.device_id.clone(),
                     point_id: cmd.point_id.clone(),
                 };
-                write_store.set(write_key.clone(), cmd.value);
+                write_store.set(write_key.clone(), cmd.value.clone());
                 write_store.set_status(&write_key, PointStatusFlags::OVERRIDDEN);
+
+                // Record the override so it appears in Active Overrides and
+                // can be released through the override-lifecycle UI. REST
+                // /api/points/.../write does the same — desktop must too.
+                let override_value = serde_json::to_value(&cmd.value)
+                    .unwrap_or(serde_json::Value::Null);
+                if let Err(e) = write_overrides
+                    .record(
+                        &cmd.device_id,
+                        &cmd.point_id,
+                        original,
+                        override_value,
+                        cmd.priority,
+                        None,
+                        &uname,
+                    )
+                    .await
+                {
+                    eprintln!("Override record failed: {e}");
+                }
             }
         });
     });

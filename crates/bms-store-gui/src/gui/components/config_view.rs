@@ -83,22 +83,32 @@ impl ConfigSection {
     }
 
     /// Returns sections visible to the current user.
+    ///
+    /// Admin-only sections (Backup, ApiKeys, Bridges, WebServer, Users)
+    /// gate behind `ManageUsers` because they mutate stores or accept
+    /// destructive ops without server-side equivalents to fall back on.
+    /// Discovery + Bridges share `ManageDiscovery` since the REST routes
+    /// guard those mutations the same way.
     pub fn visible_sections(
         can_manage_users: bool,
         can_manage_mqtt: bool,
         can_manage_webhooks: bool,
         can_manage_export: bool,
         can_view_audit: bool,
+        can_manage_discovery: bool,
+        can_manage_virtual_points: bool,
     ) -> Vec<ConfigSection> {
-        let mut sections = vec![
-            Self::Haystack,
-            Self::Discovery,
-            Self::Bridges,
-            Self::Programming,
-            Self::VirtualPoints,
-            Self::Plugins,
-            Self::Appearance,
-        ];
+        let mut sections = vec![Self::Haystack];
+        if can_manage_discovery {
+            sections.push(Self::Discovery);
+            sections.push(Self::Bridges);
+        }
+        sections.push(Self::Programming);
+        if can_manage_virtual_points {
+            sections.push(Self::VirtualPoints);
+        }
+        sections.push(Self::Plugins);
+        sections.push(Self::Appearance);
         if can_manage_mqtt {
             sections.push(Self::Mqtt);
         }
@@ -117,12 +127,15 @@ impl ConfigSection {
         if can_view_audit {
             sections.push(Self::AuditLog);
         }
-        // Backend subsystem tabs — visible to all authenticated users.
+        // Subsystem tabs visible to every authenticated user.
         sections.push(Self::Health);
         sections.push(Self::Overrides);
-        sections.push(Self::Backup);
         sections.push(Self::Retention);
-        sections.push(Self::ApiKeys);
+        // Admin-only mutation tabs.
+        if can_manage_users {
+            sections.push(Self::Backup);
+            sections.push(Self::ApiKeys);
+        }
         sections
     }
 }
@@ -139,12 +152,16 @@ pub fn ConfigView() -> Element {
     let can_manage_webhooks = state.has_permission(Permission::ManageWebhooks);
     let can_manage_export = state.has_permission(Permission::ManageExport);
     let can_view_audit = state.has_permission(Permission::ViewAudit);
+    let can_manage_discovery = state.has_permission(Permission::ManageDiscovery);
+    let can_manage_virtual_points = state.has_permission(Permission::ManageVirtualPoints);
     let all_sections = ConfigSection::visible_sections(
         can_manage_users,
         can_manage_mqtt,
         can_manage_webhooks,
         can_manage_export,
         can_view_audit,
+        can_manage_discovery,
+        can_manage_virtual_points,
     );
 
     let mut section = use_signal(|| ConfigSection::Haystack);
