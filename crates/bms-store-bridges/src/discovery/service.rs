@@ -64,6 +64,22 @@ pub struct AcceptOptions {
     /// Reserved — when `true` will skip auto-tagging entirely. Currently a
     /// no-op; auto-tag still runs.
     pub skip_auto_tag: bool,
+    /// `NodeStore` id of the spatial parent the device should be placed
+    /// under (Room, FloorArea, Floor, Building, or Site). When set,
+    /// `accept_device` walks the parent chain via `get_ancestors` and
+    /// sets `siteRef` / `buildingRef` / `floorRef` / `spaceRef` on the
+    /// new equip entity automatically.
+    pub target_space_id: Option<String>,
+}
+
+/// Resolved spatial-ref targets, as classified from a NodeStore ancestor walk.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ResolvedSpatialRefs {
+    pub site_ref: Option<String>,
+    pub building_ref: Option<String>,
+    pub floor_ref: Option<String>,
+    /// Innermost space — Room beats FloorArea on conflict.
+    pub space_ref: Option<String>,
 }
 
 /// Central orchestrator for device discovery and acceptance.
@@ -603,8 +619,71 @@ impl DiscoveryService {
         device_id: &str,
         opts: AcceptOptions,
     ) -> Result<(), String> {
-        let _ = opts; // currently unused; reserved for skip_auto_tag etc.
-        self.accept_device_inner(device_id).await
+        self.accept_device_inner(device_id).await?;
+
+        // Place the new equip into a spatial parent by setting the
+        // siteRef / buildingRef / floorRef / spaceRef chain on it. The
+        // ancestor walk is done from NodeStore so the chain reflects the
+        // actual building/campus tree, not whatever the caller assumed.
+        if let Some(target_id) = opts.target_space_id.as_deref() {
+            let refs = self.resolve_spatial_refs(target_id).await;
+            self.apply_spatial_refs(device_id, &refs).await;
+        }
+        Ok(())
+    }
+
+    /// Walk a NodeStore spatial node's ancestor chain (root-first) and
+    /// classify each ancestor by node_type / tag into a ref bucket.
+    /// Innermost wins for `space_ref` (Room beats FloorArea).
+    pub async fn resolve_spatial_refs(&self, target_space_id: &str) -> ResolvedSpatialRefs {
+        let mut out = ResolvedSpatialRefs::default();
+        let chain = self.node_store.get_ancestors(target_space_id).await.unwrap_or_default();
+
+        // Also classify the target node itself — get_ancestors returns
+        // strict ancestors only, so include the target so a Room id maps
+        // straight to spaceRef.
+        let mut all = chain;
+        if let Ok(target) = self.node_store.get_node(target_space_id).await {
+            all.push(target);
+        }
+        for n in all {
+            // Site identified by node_type only (no tag needed in this codebase)
+            if n.node_type == "site" {
+                out.site_ref = Some(n.id.clone());
+                continue;
+            }
+            // Other spatial kinds tagged on Space-typed nodes
+            if n.tags.contains_key("building") {
+                out.building_ref = Some(n.id.clone());
+            } else if n.tags.contains_key("floor") {
+                out.floor_ref = Some(n.id.clone());
+            } else if n.tags.contains_key("room")
+                || n.tags.contains_key("floorArea")
+            {
+                // Room is innermost — overwrite floorArea if both seen.
+                if n.tags.contains_key("room") {
+                    out.space_ref = Some(n.id.clone());
+                } else if out.space_ref.is_none() {
+                    out.space_ref = Some(n.id.clone());
+                }
+            }
+        }
+        out
+    }
+
+    async fn apply_spatial_refs(&self, equip_id: &str, refs: &ResolvedSpatialRefs) {
+        if let Some(id) = &refs.site_ref {
+            let _ = self.entity_store.set_ref(equip_id, "siteRef", id).await;
+        }
+        if let Some(id) = &refs.building_ref {
+            let _ = self.entity_store.set_ref(equip_id, "buildingRef", id).await;
+        }
+        if let Some(id) = &refs.floor_ref {
+            let _ = self.entity_store.set_ref(equip_id, "floorRef", id).await;
+        }
+        if let Some(id) = &refs.space_ref {
+            let _ = self.entity_store.set_ref(equip_id, "spaceRef", id).await;
+        }
     }
 
     async fn accept_device_inner(&self, device_id: &str) -> Result<(), String> {

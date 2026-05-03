@@ -6,6 +6,11 @@ Backend foundations + first GUI wiring for the operator-facing surface.
 
 ### Changed
 
+- **`accept_device` accepts a spatial target** — `AcceptOptions` gained
+  `target_space_id: Option<String>`. When set, the new equip entity gets
+  `siteRef` / `buildingRef` / `floorRef` / `spaceRef` populated from a
+  NodeStore ancestor walk in one round trip. `POST /api/discovery/devices/{id}/accept`
+  now accepts an optional body `{ "target_space_id": "<node-id>" }`.
 - **Nav tab is physical hierarchy only** — `NavNodeKind` reduced to
   `Site` → `Building` → `Floor` → `FloorArea` (sub-floor wing/quadrant)
   → `Room`. Removed `Folder`, `Page`, and `Device` variants — devices

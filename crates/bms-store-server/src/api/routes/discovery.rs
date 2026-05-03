@@ -58,18 +58,34 @@ pub async fn get_device_points(
     Json(serde_json::to_value(points).unwrap_or_default())
 }
 
-/// POST /api/discovery/devices/:id/accept
+#[derive(Default, serde::Deserialize)]
+pub struct AcceptDeviceBody {
+    /// Optional NodeStore id of a Site/Building/Floor/FloorArea/Room.
+    /// When set, the new equip entity gets siteRef/buildingRef/floorRef/
+    /// spaceRef populated from the ancestor chain.
+    pub target_space_id: Option<String>,
+}
+
+/// POST /api/discovery/devices/:id/accept — body is optional;
+/// `{ "target_space_id": "<node-id>" }` places the device into a
+/// spatial parent in one round trip.
 pub async fn accept_device(
     State(state): State<ApiState>,
     auth: AuthUser,
     Path(id): Path<String>,
+    body: Option<Json<AcceptDeviceBody>>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let perms = state.user_store.get_all_role_permissions().await;
     require_permission(&auth, Permission::ManageDiscovery, &perms)?;
 
+    let opts = bms_store_bridges::discovery::service::AcceptOptions {
+        skip_auto_tag: false,
+        target_space_id: body.and_then(|b| b.0.target_space_id),
+    };
+
     state
         .discovery_service
-        .accept_device(&id)
+        .accept_device_with_options(&id, opts)
         .await
         .map_err(ApiError::Internal)?;
 
