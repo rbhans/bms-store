@@ -87,7 +87,13 @@ pub async fn accept_device(
         .discovery_service
         .accept_device_with_options(&id, opts)
         .await
-        .map_err(ApiError::Internal)?;
+        .map_err(|e| {
+            if e.starts_with("Device not found") {
+                ApiError::NotFound(e)
+            } else {
+                ApiError::Internal(e)
+            }
+        })?;
 
     let builder = AuditEntryBuilder::new(AuditAction::AcceptDevice, "device").resource_id(&id);
     let _ = state
@@ -114,7 +120,13 @@ pub async fn preview_device_tags(
         .discovery_service
         .preview_device_tags(&id)
         .await
-        .map_err(ApiError::Internal)?;
+        .map_err(|e| {
+            if e.starts_with("Device not found") {
+                ApiError::NotFound(e)
+            } else {
+                ApiError::Internal(e)
+            }
+        })?;
 
     Ok(Json(serde_json::json!({
         "device_id": preview.device_id,
