@@ -257,6 +257,7 @@ pub(crate) fn ProjectApp(
     let bridge_registry = plat.bridge_registry.clone();
     let program_store = plat.program_store.clone();
     let mqtt_store = plat.mqtt_store.clone();
+    let bridge_store = plat.bridge_store.clone();
     let webhook_store = plat.webhook_store.clone();
     let export_store = plat.export_store.clone();
     let naming_rule_store = plat.naming_rule_store.clone();
@@ -402,6 +403,7 @@ pub(crate) fn ProjectApp(
         bridge_registry: bridge_registry.clone(),
         program_store: program_store.clone(),
         mqtt_store: mqtt_store.clone(),
+        bridge_store: bridge_store.clone(),
         webhook_store: webhook_store.clone(),
         export_store: export_store.clone(),
         override_store: override_store.clone(),
@@ -705,10 +707,23 @@ fn HomeView() -> Element {
     let selected = state.selected_device.read().clone();
 
     let Some(device_id) = selected else {
+        let mut state_for_btn = state;
         return rsx! {
             div { class: "view-placeholder",
                 h2 { "Welcome" }
-                p { "Select a device from the sidebar to view its points." }
+                p { "Select a device from the Devices sidebar tab to view its points." }
+                p { class: "view-placeholder-hint",
+                    "First time setup? Open "
+                    button {
+                        class: "linklike-btn",
+                        onclick: move |_| {
+                            state_for_btn.pending_config_section.set(Some("Discovery".into()));
+                            state_for_btn.active_view.set(ActiveView::Config);
+                        },
+                        "Config → Discovery"
+                    }
+                    " to scan your network."
+                }
             }
         };
     };

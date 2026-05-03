@@ -8,6 +8,7 @@ use bms_store_storage::health::HealthRegistry;
 use bms_store_storage::logic::store::ProgramStore;
 use bms_store_storage::project::ProjectPaths;
 use bms_store_storage::store::audit_store::AuditStore;
+use bms_store_storage::store::bridge_store::BridgeStore;
 use bms_store_storage::store::naming_rule_store::NamingRuleStore;
 use bms_store_storage::store::discovery_store::DiscoveryStore;
 use bms_store_storage::store::entity_store::EntityStore;
@@ -38,6 +39,7 @@ pub struct SharedPlatform {
     pub discovery_store: DiscoveryStore,
     pub program_store: ProgramStore,
     pub mqtt_store: MqttStore,
+    pub bridge_store: BridgeStore,
     pub webhook_store: WebhookStore,
     pub export_store: ExportStore,
     pub override_store: OverrideStore,
@@ -103,6 +105,7 @@ pub async fn init_platform(
         discovery_store: storage.discovery_store,
         program_store: storage.program_store,
         mqtt_store: storage.mqtt_store,
+        bridge_store: storage.bridge_store,
         webhook_store: storage.webhook_store,
         export_store: storage.export_store,
         override_store: storage.override_store,

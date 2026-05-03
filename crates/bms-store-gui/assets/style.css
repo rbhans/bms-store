@@ -9150,3 +9150,85 @@ textarea.discovery-input {
     overflow-x: auto;
     white-space: pre-wrap;
 }
+
+/* Bridge settings table + form */
+.settings-actions { margin-bottom: 12px; }
+.settings-form {
+    border: 1px solid var(--border, #2a2f3a);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    background: var(--surface, #1a1f29);
+}
+.settings-form h3 { margin: 0 0 10px 0; font-size: 15px; }
+.form-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+.form-row label {
+    min-width: 200px;
+    font-size: 13px;
+    opacity: 0.85;
+}
+.form-row input[type="text"], .form-row select {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--border, #2a2f3a);
+    border-radius: 4px;
+    background: var(--bg, #0e1117);
+    color: var(--text, #e6e8ec);
+    font: inherit;
+}
+.form-error {
+    background: rgba(230, 57, 70, 0.18);
+    border-left: 3px solid #e63946;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    border-radius: 3px;
+    font-size: 13px;
+}
+.form-actions { margin-top: 12px; display: flex; gap: 8px; }
+.settings-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.settings-table th, .settings-table td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border, #2a2f3a);
+    font-size: 13px;
+}
+.settings-table th {
+    font-weight: 600;
+    opacity: 0.75;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.row-actions { text-align: right; white-space: nowrap; }
+.row-actions .btn { margin-left: 6px; }
+.btn-sm { padding: 4px 8px; font-size: 12px; }
+.btn-danger {
+    background: rgba(230, 57, 70, 0.15);
+    color: #e63946;
+}
+.btn-danger:hover { background: rgba(230, 57, 70, 0.30); }
+
+/* Welcome / placeholder helpers */
+.view-placeholder-hint {
+    margin-top: 8px;
+    font-size: 13px;
+    opacity: 0.85;
+}
+.linklike-btn {
+    background: none;
+    border: 0;
+    color: var(--accent, #3a86ff);
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+    font: inherit;
+}
+.linklike-btn:hover { opacity: 0.85; }

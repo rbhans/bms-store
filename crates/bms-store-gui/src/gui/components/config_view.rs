@@ -16,6 +16,7 @@ use super::api_keys_view::ApiKeysView;
 use super::coverage_view::CoverageView;
 use super::audit_log_view::AuditLogView;
 use super::backup_view::BackupView;
+use super::bridge_settings::BridgeSettingsView;
 use super::discovery_view::DiscoveryView;
 use super::health_view::HealthView;
 use super::override_view::OverrideView;
@@ -35,6 +36,7 @@ use super::web_server_settings::WebServerSettingsView;
 pub enum ConfigSection {
     Haystack,
     Discovery,
+    Bridges,
     Programming,
     VirtualPoints,
     Plugins,
@@ -59,6 +61,7 @@ impl ConfigSection {
         match self {
             Self::Haystack => "Haystack",
             Self::Discovery => "Discovery",
+            Self::Bridges => "Bridges",
             Self::Programming => "Programming",
             Self::VirtualPoints => "Virtual Points",
             Self::Plugins => "Plugins",
@@ -90,6 +93,7 @@ impl ConfigSection {
         let mut sections = vec![
             Self::Haystack,
             Self::Discovery,
+            Self::Bridges,
             Self::Programming,
             Self::VirtualPoints,
             Self::Plugins,
@@ -213,6 +217,7 @@ pub fn ConfigView() -> Element {
                 match current {
                     ConfigSection::Haystack => rsx! { HaystackView {} },
                     ConfigSection::Discovery => rsx! { DiscoveryView {} },
+                    ConfigSection::Bridges => rsx! { BridgeSettingsView {} },
                     ConfigSection::Programming => rsx! { ProgrammingView {} },
                     ConfigSection::VirtualPoints => rsx! { VirtualPointsView {} },
                     ConfigSection::Plugins => rsx! { super::plugin_manager::PluginManagerView {} },
