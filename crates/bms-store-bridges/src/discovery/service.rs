@@ -36,7 +36,7 @@ pub enum TagSource {
 }
 
 /// Tags `accept_device` would apply to a single point.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PointTagPreview {
     pub point_id: String,
     pub point_dis: String,
@@ -48,7 +48,7 @@ pub struct PointTagPreview {
 }
 
 /// Tags `accept_device` would apply to a device + its points (dry-run).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DeviceTagPreview {
     pub device_id: String,
     pub device_dis: String,

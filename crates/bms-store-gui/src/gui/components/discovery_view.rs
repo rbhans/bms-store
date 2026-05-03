@@ -42,6 +42,9 @@ pub fn DiscoveryView() -> Element {
 
     let mut detail_tab = use_signal(|| DeviceDetailTab::Overview);
     let mut discovery_tab = use_signal(|| DiscoveryTab::AllDevices);
+    // Auto-tag preview modal — set to Some(device_id) by the per-row
+    // Preview button to open the dry-run modal.
+    let mut preview_device_id: Signal<Option<String>> = use_signal(|| None);
 
     // Editing state
     let editing_device_name = use_signal(|| false);
@@ -375,7 +378,20 @@ pub fn DiscoveryView() -> Element {
         .filter(|d| d.protocol == PROTOCOL_MODBUS)
         .count();
 
+    let preview_did_render = preview_device_id.read().clone();
     rsx! {
+        // Auto-tag preview modal — opened by per-row Preview button.
+        if let Some(did) = preview_did_render {
+            crate::gui::components::auto_tag_preview::AutoTagPreviewModal {
+                device_id: did,
+                on_close: move |_| { preview_device_id.set(None); },
+                on_accept: move |_| {
+                    preview_device_id.set(None);
+                    let cur = *refresh_counter.read();
+                    refresh_counter.set(cur.wrapping_add(1));
+                },
+            }
+        }
         div { class: "discovery-view",
             // ── Left sidebar ──
             div { class: "discovery-device-list",
@@ -837,7 +853,7 @@ pub fn DiscoveryView() -> Element {
                             div { class: "discovery-group",
                                 div { class: "discovery-group-header", "Pending ({pending.len()})" }
                                 for dev in pending.iter() {
-                                    { render_pending_device(dev, &sel, &state, selected_device_id, detail_tab, refresh_counter) }
+                                    { render_pending_device(dev, &sel, &state, selected_device_id, detail_tab, refresh_counter, preview_device_id) }
                                 }
                             }
                         }

@@ -17,10 +17,12 @@ pub(crate) fn render_pending_device(
     mut selected_device_id: Signal<Option<String>>,
     mut detail_tab: Signal<DeviceDetailTab>,
     mut refresh_counter: Signal<u64>,
+    mut preview_device_id: Signal<Option<String>>,
 ) -> Element {
     let dev_id = dev.id.clone();
     let dev_id2 = dev.id.clone();
     let dev_id3 = dev.id.clone();
+    let dev_id_preview = dev.id.clone();
     let is_selected = sel.as_deref() == Some(&dev.id);
     let svc = state.discovery_service.clone();
     let svc2 = state.discovery_service.clone();
@@ -41,6 +43,18 @@ pub(crate) fn render_pending_device(
             }
             div { class: "discovery-actions",
                 if state.has_permission(Permission::ManageDiscovery) {
+                    button {
+                        class: "discovery-action-btn preview",
+                        title: "Preview the tags accept_device would apply",
+                        onclick: {
+                            let did = dev_id_preview.clone();
+                            move |evt: Event<MouseData>| {
+                                evt.stop_propagation();
+                                preview_device_id.set(Some(did.clone()));
+                            }
+                        },
+                        "Preview"
+                    }
                     button {
                         class: "discovery-action-btn accept",
                         onclick: {

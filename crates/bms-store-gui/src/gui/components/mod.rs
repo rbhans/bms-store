@@ -32,6 +32,7 @@ pub mod preview_modal;
 pub mod point_table;
 pub mod programming_view;
 pub mod project_launcher;
+pub mod auto_tag_preview;
 pub mod bridge_settings;
 pub mod retention_view;
 pub mod relationships_section;

@@ -121,6 +121,11 @@ pub fn PointTable() -> Element {
     let mut bulk_rename_status: Signal<Option<String>> = use_signal(|| None);
     let mut bulk_regex_error: Signal<Option<String>> = use_signal(|| None);
 
+    // Assign-to-Equip modal state — bulk equipRef on selected points
+    let mut show_assign_equip = use_signal(|| false);
+    let mut assign_picker_filter = use_signal(String::new);
+    let mut assign_status: Signal<Option<String>> = use_signal(|| None);
+
     // Haystack filter state (deliverable 5)
     let mut hs_filter_text = use_signal(String::new);
     let mut hs_filter_error: Signal<Option<String>> = use_signal(|| None);
@@ -488,6 +493,138 @@ pub fn PointTable() -> Element {
                 }
             }
 
+            // Assign-to-Equipment modal — bulk equipRef on selected points
+            if *show_assign_equip.read() {
+                {
+                    let selected_ids = selected_point_ids.read().clone();
+                    let did_for_assign = device_id.clone();
+                    let es = state.entity_store.clone();
+                    let mut equips: Signal<Vec<(String, String)>> = use_signal(Vec::new);
+                    {
+                        let es_load = es.clone();
+                        let _ = use_resource(move || {
+                            let es = es_load.clone();
+                            async move {
+                                let mut all = es.list_entities(Some("equip"), None).await;
+                                all.sort_by(|a, b| a.dis.cmp(&b.dis));
+                                let list: Vec<(String, String)> = all
+                                    .into_iter()
+                                    .map(|e| (e.id, e.dis))
+                                    .collect();
+                                equips.set(list);
+                            }
+                        });
+                    }
+                    let filter = assign_picker_filter.read().to_lowercase();
+                    let equips_filtered: Vec<(String, String)> = equips
+                        .read()
+                        .iter()
+                        .filter(|(id, dis)| {
+                            filter.is_empty()
+                                || id.to_lowercase().contains(&filter)
+                                || dis.to_lowercase().contains(&filter)
+                        })
+                        .cloned()
+                        .collect();
+                    let count = if selected_ids.is_empty() {
+                        all_visible_rows.len()
+                    } else {
+                        selected_ids.len()
+                    };
+                    let target_point_ids: Vec<String> = if selected_ids.is_empty() {
+                        all_visible_rows
+                            .iter()
+                            .map(|r| format!("{}/{}", did_for_assign, r.point_id))
+                            .collect()
+                    } else {
+                        selected_ids
+                            .iter()
+                            .map(|pid| format!("{}/{}", did_for_assign, pid))
+                            .collect()
+                    };
+                    rsx! {
+                        div { class: "pt-bulk-rename-modal-overlay",
+                            onclick: move |_| { show_assign_equip.set(false); },
+                            div { class: "pt-bulk-rename-modal",
+                                onclick: move |e| e.stop_propagation(),
+                                div { class: "pt-bulk-rename-header",
+                                    h4 { "Assign {count} point(s) to Equipment" }
+                                    button {
+                                        class: "pt-modal-close",
+                                        onclick: move |_| show_assign_equip.set(false),
+                                        "\u{00D7}"
+                                    }
+                                }
+                                div { class: "pt-bulk-rename-body",
+                                    input {
+                                        r#type: "text",
+                                        placeholder: "Filter by name or id…",
+                                        value: "{assign_picker_filter}",
+                                        oninput: move |e| assign_picker_filter.set(e.value()),
+                                        style: "width: 100%; padding: 6px 10px; margin-bottom: 8px;",
+                                    }
+                                    if equips_filtered.is_empty() {
+                                        div { class: "settings-empty",
+                                            "No equipment matches. Accept a device in Discovery first."
+                                        }
+                                    } else {
+                                        ul { class: "pt-equip-picker",
+                                            for (eid, dis) in equips_filtered {
+                                                {
+                                                    let target_ids = target_point_ids.clone();
+                                                    let es = es.clone();
+                                                    let eid_for_click = eid.clone();
+                                                    rsx! {
+                                                        li { class: "pt-equip-row",
+                                                            button {
+                                                                class: "pt-equip-pick-btn",
+                                                                onclick: move |_| {
+                                                                    let es = es.clone();
+                                                                    let target_ids = target_ids.clone();
+                                                                    let eid = eid_for_click.clone();
+                                                                    spawn(async move {
+                                                                        match es
+                                                                            .set_ref_batch(
+                                                                                target_ids,
+                                                                                "equipRef",
+                                                                                &eid,
+                                                                            )
+                                                                            .await
+                                                                        {
+                                                                            Ok(n) => {
+                                                                                assign_status.set(Some(format!(
+                                                                                    "Assigned {n} point(s) to {eid}"
+                                                                                )));
+                                                                                show_assign_equip.set(false);
+                                                                                selected_point_ids.set(HashSet::new());
+                                                                            }
+                                                                            Err(e) => {
+                                                                                assign_status
+                                                                                    .set(Some(format!("Failed: {e}")));
+                                                                            }
+                                                                        }
+                                                                    });
+                                                                },
+                                                                span { class: "pt-equip-dis", "{dis}" }
+                                                                span { class: "pt-equip-id", "{eid}" }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let Some(ref msg) = *assign_status.read() {
+                div { class: "pt-bulk-status pt-status-banner", "{msg}" }
+            }
+
             // Bulk Rename modal (deliverable 3) — rendered above the table
             if *show_bulk_rename.read() || *show_preview.read() {
                 {
@@ -773,6 +910,15 @@ pub fn PointTable() -> Element {
                             show_bulk_rename.set(true);
                         },
                         "Bulk Rename"
+                    }
+                    button {
+                        class: "btn-secondary btn-sm",
+                        title: "Assign selected points to an Equipment (sets equipRef)",
+                        onclick: move |_| {
+                            assign_picker_filter.set(String::new());
+                            show_assign_equip.set(true);
+                        },
+                        "Assign to Equip"
                     }
                     if let Some(ref msg) = *bulk_rename_status.read() {
                         span { class: "pt-bulk-status", "{msg}" }
