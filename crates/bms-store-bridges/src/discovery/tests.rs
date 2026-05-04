@@ -1106,3 +1106,70 @@ async fn modbus_rescan_preserves_renamed_points() {
         "User rename should survive rescan"
     );
 }
+
+// ---------------------------------------------------------------------------
+// skip_auto_tag — Haystack opt-out
+// ---------------------------------------------------------------------------
+
+/// Default accept_device populates equip + point tags via heuristics
+/// (Atlas off in this build). Sanity check before the skip variant.
+#[tokio::test]
+async fn accept_device_default_populates_tags() {
+    let (svc, _ps, _ns, ds, es) = test_service("accept_default_tags").await;
+    let device_id = "bacnet-3000";
+    upsert_device_and_points(&ds, device_id).await;
+
+    svc.accept_device(device_id).await.expect("accept");
+
+    let equip = es.get_entity(device_id).await.expect("equip entity");
+    assert!(
+        !equip.tags.is_empty(),
+        "default accept should populate equip tags via heuristic, got empty"
+    );
+
+    let point = es
+        .get_entity(&format!("{device_id}/discharge-air-temp"))
+        .await
+        .expect("point entity");
+    assert!(
+        !point.tags.is_empty(),
+        "default accept should populate point tags, got empty"
+    );
+}
+
+/// `AcceptOptions::skip_auto_tag` opts out of Haystack auto-tagging entirely.
+/// Equip and point entities are created with empty tag sets so consumers can
+/// apply their own taxonomy via the entity API.
+#[tokio::test]
+async fn accept_device_skip_auto_tag_creates_empty_tags() {
+    use crate::discovery::service::AcceptOptions;
+
+    let (svc, _ps, _ns, ds, es) = test_service("accept_skip_tag").await;
+    let device_id = "bacnet-4000";
+    upsert_device_and_points(&ds, device_id).await;
+
+    let opts = AcceptOptions {
+        skip_auto_tag: true,
+        target_space_id: None,
+    };
+    svc.accept_device_with_options(device_id, opts)
+        .await
+        .expect("accept");
+
+    let equip = es.get_entity(device_id).await.expect("equip entity");
+    assert!(
+        equip.tags.is_empty(),
+        "skip_auto_tag should leave equip with no tags, got {:?}",
+        equip.tags
+    );
+
+    for pt_id in &["discharge-air-temp", "fan-cmd", "fan-speed"] {
+        let entity_id = format!("{device_id}/{pt_id}");
+        let point = es.get_entity(&entity_id).await.expect("point entity");
+        assert!(
+            point.tags.is_empty(),
+            "skip_auto_tag should leave point {pt_id} with no tags, got {:?}",
+            point.tags
+        );
+    }
+}

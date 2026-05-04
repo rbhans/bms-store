@@ -64,11 +64,17 @@ pub struct AcceptDeviceBody {
     /// When set, the new equip entity gets siteRef/buildingRef/floorRef/
     /// spaceRef populated from the ancestor chain.
     pub target_space_id: Option<String>,
+    /// When `true`, skip Atlas matching and Haystack/heuristic auto-tagging.
+    /// The equip and point entities are created with empty tag sets — the
+    /// caller can apply its own tags afterwards via the entity API. Use
+    /// when the deployment does not adopt Project Haystack semantics.
+    #[serde(default)]
+    pub skip_auto_tag: bool,
 }
 
 /// POST /api/discovery/devices/:id/accept — body is optional;
-/// `{ "target_space_id": "<node-id>" }` places the device into a
-/// spatial parent in one round trip.
+/// `{ "target_space_id": "<node-id>", "skip_auto_tag": true }` places the
+/// device into a spatial parent and/or opts out of auto-tagging.
 pub async fn accept_device(
     State(state): State<ApiState>,
     auth: AuthUser,
@@ -78,9 +84,10 @@ pub async fn accept_device(
     let perms = state.user_store.get_all_role_permissions().await;
     require_permission(&auth, Permission::ManageDiscovery, &perms)?;
 
+    let body = body.map(|j| j.0).unwrap_or_default();
     let opts = bms_store_bridges::discovery::service::AcceptOptions {
-        skip_auto_tag: false,
-        target_space_id: body.and_then(|b| b.0.target_space_id),
+        skip_auto_tag: body.skip_auto_tag,
+        target_space_id: body.target_space_id,
     };
 
     state

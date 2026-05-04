@@ -61,8 +61,11 @@ pub struct DeviceTagPreview {
 /// Knobs that customise an [`DiscoveryService::accept_device_with_options`] call.
 #[derive(Debug, Clone, Default)]
 pub struct AcceptOptions {
-    /// Reserved — when `true` will skip auto-tagging entirely. Currently a
-    /// no-op; auto-tag still runs.
+    /// When `true`, skip Atlas matching and Haystack/heuristic
+    /// auto-tagging entirely. The equip and point entities are created
+    /// with empty tag sets — callers can apply their own tags through
+    /// the entity API afterwards. Use this when the deployment does
+    /// not adopt Project Haystack semantics.
     pub skip_auto_tag: bool,
     /// `NodeStore` id of the spatial parent the device should be placed
     /// under (Room, FloorArea, Floor, Building, or Site). When set,
@@ -619,7 +622,7 @@ impl DiscoveryService {
         device_id: &str,
         opts: AcceptOptions,
     ) -> Result<(), String> {
-        self.accept_device_inner(device_id).await?;
+        self.accept_device_inner(device_id, &opts).await?;
 
         // Place the new equip into a spatial parent by setting the
         // siteRef / buildingRef / floorRef / spaceRef chain on it. The
@@ -686,7 +689,11 @@ impl DiscoveryService {
         }
     }
 
-    async fn accept_device_inner(&self, device_id: &str) -> Result<(), String> {
+    async fn accept_device_inner(
+        &self,
+        device_id: &str,
+        opts: &AcceptOptions,
+    ) -> Result<(), String> {
         let device = self
             .store
             .get_device(device_id)
@@ -733,8 +740,11 @@ impl DiscoveryService {
         let atlas_snapshot: Option<Arc<crate::atlas::matcher::AtlasMatcher>> =
             self.atlas_matcher.read().unwrap().clone();
 
-        // 2. Auto-tag equipment — Atlas first, fallback to heuristics
-        let equip_tags = {
+        // 2. Auto-tag equipment — Atlas first, fallback to heuristics.
+        //    Skipped when AcceptOptions::skip_auto_tag is set (Haystack opt-out).
+        let equip_tags: Vec<(String, Option<String>)> = if opts.skip_auto_tag {
+            Vec::new()
+        } else {
             #[cfg(feature = "atlas")]
             {
                 if let Some(ref atlas) = atlas_snapshot {
@@ -788,9 +798,12 @@ impl DiscoveryService {
                 tracing::warn!(point_node_id, "Failed to create point node: {e}");
             }
 
-            // Auto-tag point — Atlas first, fallback to heuristics
+            // Auto-tag point — Atlas first, fallback to heuristics.
+            // Skipped when AcceptOptions::skip_auto_tag is set (Haystack opt-out).
             let names: Vec<&str> = vec![&pt.id, &pt.display_name];
-            let point_tags = {
+            let point_tags: Vec<(String, Option<String>)> = if opts.skip_auto_tag {
+                Vec::new()
+            } else {
                 #[cfg(feature = "atlas")]
                 {
                     if let Some(ref atlas) = atlas_snapshot {
