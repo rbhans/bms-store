@@ -1,8 +1,17 @@
 # bms-store
 
-Standalone universal data layer for building management. Ingests BMS data
-(BACnet, Modbus, MQTT), tags it with [Project Haystack 5](https://project-haystack.org)
-semantics, and serves it to consumer apps via REST / WebSocket.
+Standalone universal data layer for building management. Discovers BMS
+points (BACnet, Modbus; MQTT outbound), standardizes them with semantic
+tags (Project Haystack vocabulary by default — consumers do not need to
+adopt Haystack), models the Site → Building → Floor → Space → Equipment
+→ Point hierarchy, and serves the result to consumer apps via REST /
+WebSocket / MQTT. Supports write-back (setpoints, BACnet priority
+overrides, relinquish) with audit + RBAC. Threshold-based alarming
+ships as a sibling crate (`bms-store-alarms`) that consumes the same
+public API.
+
+See [docs/v1-criteria.md](docs/v1-criteria.md) for the locked v1.0
+scope and done criteria.
 
 ## Quick start
 
@@ -43,15 +52,21 @@ remote consumers.
 
 ## What's not here
 
-bms-store is a **data layer**. The following intentionally live in consumer
+bms-store is a **data layer + write-back surface + reference alarm
+engine sibling**. The following intentionally live in separate consumer
 apps that build on top:
 
-- Alarm / FDD engines, schedule engine, energy analytics, reports
+- Advanced FDD (fault detection / diagnostics) beyond simple thresholds
+- Schedule engine, energy analytics, reports
 - Trend chart UI (history backend is here; charting is the consumer's)
 - Cloud sync, weather adapters
 
-See [CHANGELOG.md](CHANGELOG.md) for the v0.2.0 trim that established this
-boundary.
+The threshold-based alarm engine ships as a sibling crate
+(`bms-store-alarms`) that uses only the public REST/WS API — it is the
+reference for how a consumer app integrates with bms-store.
+
+See [CHANGELOG.md](CHANGELOG.md) for the v0.2.0 boundary trim and
+[docs/v1-criteria.md](docs/v1-criteria.md) for v1.0 scope.
 
 ## Documentation
 
