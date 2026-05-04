@@ -8,7 +8,7 @@ semantics, and serves it to consumer apps via REST / WebSocket.
 
 ```bash
 # Headless data daemon (HTTP + WebSocket on :8080)
-cargo run --bin bms-stored -- --data-dir demo-data
+cargo run --bin bms-stored -- --project ./demo-data
 
 # Desktop GUI (Dioxus)
 cargo run -p bms-store-gui -- --project ./demo-data
