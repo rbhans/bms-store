@@ -25,6 +25,67 @@ pub struct Entity {
     pub updated_ms: i64,
 }
 
+/// Where a tag came from + how confident we are about it. Stored
+/// per-(entity, tag) row in `entity_tag_provenance`. Consumers (UI)
+/// use this to show "auto-tagged 92% — review" badges and to filter
+/// "show only manually-edited tags."
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TagProvenance {
+    /// `"atlas"` (Atlas matcher), `"heuristic"` (rule-based suggester),
+    /// `"imported"` (loaded from a scenario / external file),
+    /// `"manual"` (user typed it).
+    pub source: String,
+    /// 0.0–1.0 when the source is automatic; `None` for `"manual"`.
+    pub confidence: Option<f32>,
+    /// Free-form why-this-tag — matched alias, rule name, etc.
+    pub evidence: Option<String>,
+    /// Vocabulary the tag belongs to, e.g. `"haystack-5"`. `None` when
+    /// the deployment opts out of a named taxonomy.
+    pub taxonomy: Option<String>,
+    /// Wall-clock millisecond timestamp when the provenance row was
+    /// recorded.
+    pub accepted_ms: i64,
+}
+
+impl TagProvenance {
+    pub fn manual() -> Self {
+        TagProvenance {
+            source: "manual".into(),
+            confidence: None,
+            evidence: None,
+            taxonomy: None,
+            accepted_ms: now_ms_helper(),
+        }
+    }
+
+    pub fn atlas(confidence: f32, alias: impl Into<String>) -> Self {
+        TagProvenance {
+            source: "atlas".into(),
+            confidence: Some(confidence),
+            evidence: Some(alias.into()),
+            taxonomy: Some("haystack-5".into()),
+            accepted_ms: now_ms_helper(),
+        }
+    }
+
+    pub fn heuristic(evidence: impl Into<String>) -> Self {
+        TagProvenance {
+            source: "heuristic".into(),
+            confidence: Some(0.5),
+            evidence: Some(evidence.into()),
+            taxonomy: Some("haystack-5".into()),
+            accepted_ms: now_ms_helper(),
+        }
+    }
+}
+
+fn now_ms_helper() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum EntityError {
     #[error("database error: {0}")]
@@ -142,6 +203,23 @@ enum EntityCmd {
         ref_tag: String,
         target_id: EntityId,
         reply: oneshot::Sender<Result<usize, EntityError>>,
+    },
+
+    /// Tag provenance — record / read where a tag came from.
+    SetTagProvenance {
+        entity_id: EntityId,
+        tag_name: String,
+        provenance: TagProvenance,
+        reply: oneshot::Sender<Result<(), EntityError>>,
+    },
+    GetTagProvenance {
+        entity_id: EntityId,
+        tag_name: String,
+        reply: oneshot::Sender<Option<TagProvenance>>,
+    },
+    ListTagProvenance {
+        entity_id: EntityId,
+        reply: oneshot::Sender<HashMap<String, TagProvenance>>,
     },
 }
 
@@ -424,6 +502,54 @@ impl EntityStore {
         result
     }
 
+    /// Record where a tag came from (auto-tagger / heuristic / manual edit).
+    /// Independent of the tag value itself — the value lives in `entity_tag`,
+    /// the provenance lives in `entity_tag_provenance`. Idempotent — later
+    /// calls with the same (entity, tag_name) overwrite earlier provenance.
+    pub async fn set_tag_provenance(
+        &self,
+        entity_id: &str,
+        tag_name: &str,
+        provenance: TagProvenance,
+    ) -> Result<(), EntityError> {
+        let (reply_tx, reply_rx) = oneshot::channel();
+        self.cmd_tx
+            .send(EntityCmd::SetTagProvenance {
+                entity_id: entity_id.to_string(),
+                tag_name: tag_name.to_string(),
+                provenance,
+                reply: reply_tx,
+            })
+            .map_err(|_| EntityError::ChannelClosed)?;
+        reply_rx.await.map_err(|_| EntityError::ChannelClosed)?
+    }
+
+    pub async fn get_tag_provenance(
+        &self,
+        entity_id: &str,
+        tag_name: &str,
+    ) -> Option<TagProvenance> {
+        let (reply_tx, reply_rx) = oneshot::channel();
+        let _ = self.cmd_tx.send(EntityCmd::GetTagProvenance {
+            entity_id: entity_id.to_string(),
+            tag_name: tag_name.to_string(),
+            reply: reply_tx,
+        });
+        reply_rx.await.unwrap_or(None)
+    }
+
+    pub async fn list_tag_provenance(
+        &self,
+        entity_id: &str,
+    ) -> HashMap<String, TagProvenance> {
+        let (reply_tx, reply_rx) = oneshot::channel();
+        let _ = self.cmd_tx.send(EntityCmd::ListTagProvenance {
+            entity_id: entity_id.to_string(),
+            reply: reply_tx,
+        });
+        reply_rx.await.unwrap_or_default()
+    }
+
     pub async fn set_ref(
         &self,
         source_id: &str,
@@ -500,10 +626,11 @@ impl EntityStore {
 
 use super::migration::{run_migrations, Migration};
 
-const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    label: "initial entity schema",
-    sql: "
+const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        label: "initial entity schema",
+        sql: "
 CREATE TABLE IF NOT EXISTS entity (
     id          TEXT PRIMARY KEY,
     entity_type TEXT NOT NULL,
@@ -529,7 +656,26 @@ CREATE TABLE IF NOT EXISTS entity_ref (
 );
 CREATE INDEX IF NOT EXISTS idx_entity_ref_target ON entity_ref(target_id);
 ",
-}];
+    },
+    Migration {
+        version: 2,
+        label: "tag provenance",
+        sql: "
+CREATE TABLE IF NOT EXISTS entity_tag_provenance (
+    entity_id   TEXT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+    tag_name    TEXT NOT NULL,
+    source      TEXT NOT NULL,
+    confidence  REAL,
+    evidence    TEXT,
+    taxonomy    TEXT,
+    accepted_ms INTEGER NOT NULL,
+    PRIMARY KEY (entity_id, tag_name)
+);
+CREATE INDEX IF NOT EXISTS idx_entity_tag_provenance_source
+    ON entity_tag_provenance(source);
+",
+    },
+];
 
 // ----------------------------------------------------------------
 // Start function
@@ -703,8 +849,113 @@ fn run_sqlite_thread(db_path: &Path, mut cmd_rx: mpsc::UnboundedReceiver<EntityC
                 let result = set_ref_batch_db(&conn, &source_ids, &ref_tag, &target_id);
                 let _ = reply.send(result);
             }
+            EntityCmd::SetTagProvenance {
+                entity_id,
+                tag_name,
+                provenance,
+                reply,
+            } => {
+                let result = set_tag_provenance_db(&conn, &entity_id, &tag_name, &provenance);
+                let _ = reply.send(result);
+            }
+            EntityCmd::GetTagProvenance {
+                entity_id,
+                tag_name,
+                reply,
+            } => {
+                let result = get_tag_provenance_db(&conn, &entity_id, &tag_name);
+                let _ = reply.send(result);
+            }
+            EntityCmd::ListTagProvenance { entity_id, reply } => {
+                let result = list_tag_provenance_db(&conn, &entity_id);
+                let _ = reply.send(result);
+            }
         }
     }
+}
+
+// ----------------------------------------------------------------
+// Tag provenance helpers
+// ----------------------------------------------------------------
+
+fn set_tag_provenance_db(
+    conn: &rusqlite::Connection,
+    entity_id: &str,
+    tag_name: &str,
+    p: &TagProvenance,
+) -> Result<(), EntityError> {
+    conn.execute(
+        "INSERT OR REPLACE INTO entity_tag_provenance
+            (entity_id, tag_name, source, confidence, evidence, taxonomy, accepted_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        rusqlite::params![
+            entity_id,
+            tag_name,
+            p.source,
+            p.confidence,
+            p.evidence,
+            p.taxonomy,
+            p.accepted_ms,
+        ],
+    )
+    .map(|_| ())
+    .map_err(|e| EntityError::Db(e.to_string()))
+}
+
+fn get_tag_provenance_db(
+    conn: &rusqlite::Connection,
+    entity_id: &str,
+    tag_name: &str,
+) -> Option<TagProvenance> {
+    conn.query_row(
+        "SELECT source, confidence, evidence, taxonomy, accepted_ms
+         FROM entity_tag_provenance
+         WHERE entity_id = ?1 AND tag_name = ?2",
+        rusqlite::params![entity_id, tag_name],
+        |row| {
+            Ok(TagProvenance {
+                source: row.get(0)?,
+                confidence: row.get(1)?,
+                evidence: row.get(2)?,
+                taxonomy: row.get(3)?,
+                accepted_ms: row.get(4)?,
+            })
+        },
+    )
+    .ok()
+}
+
+fn list_tag_provenance_db(
+    conn: &rusqlite::Connection,
+    entity_id: &str,
+) -> HashMap<String, TagProvenance> {
+    let mut out = HashMap::new();
+    let mut stmt = match conn.prepare(
+        "SELECT tag_name, source, confidence, evidence, taxonomy, accepted_ms
+         FROM entity_tag_provenance
+         WHERE entity_id = ?1",
+    ) {
+        Ok(s) => s,
+        Err(_) => return out,
+    };
+    let rows = stmt.query_map(rusqlite::params![entity_id], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            TagProvenance {
+                source: row.get(1)?,
+                confidence: row.get(2)?,
+                evidence: row.get(3)?,
+                taxonomy: row.get(4)?,
+                accepted_ms: row.get(5)?,
+            },
+        ))
+    });
+    if let Ok(mapped) = rows {
+        for r in mapped.flatten() {
+            out.insert(r.0, r.1);
+        }
+    }
+    out
 }
 
 fn set_tags_batch_db(
@@ -1623,5 +1874,96 @@ mod tests {
         assert_eq!(children.len(), 4);
 
         std::fs::remove_file("/tmp/test_entity_batch_ref.db").ok();
+    }
+
+    // ---- Tag provenance ----
+
+    #[tokio::test]
+    async fn tag_provenance_set_get_list() {
+        let store = test_store("entity_provenance");
+
+        store
+            .create_entity("ahu-9", "equip", "AHU-9", None, vec![])
+            .await
+            .unwrap();
+
+        store
+            .set_tag_provenance("ahu-9", "equip", TagProvenance::manual())
+            .await
+            .unwrap();
+        store
+            .set_tag_provenance("ahu-9", "ahu", TagProvenance::atlas(0.92, "AHU-9 alias"))
+            .await
+            .unwrap();
+        store
+            .set_tag_provenance(
+                "ahu-9",
+                "discharge",
+                TagProvenance::heuristic("name contains 'discharge'"),
+            )
+            .await
+            .unwrap();
+
+        let manual = store.get_tag_provenance("ahu-9", "equip").await.unwrap();
+        assert_eq!(manual.source, "manual");
+        assert!(manual.confidence.is_none());
+
+        let atlas = store.get_tag_provenance("ahu-9", "ahu").await.unwrap();
+        assert_eq!(atlas.source, "atlas");
+        assert_eq!(atlas.confidence, Some(0.92));
+        assert_eq!(atlas.evidence.as_deref(), Some("AHU-9 alias"));
+        assert_eq!(atlas.taxonomy.as_deref(), Some("haystack-5"));
+
+        let all = store.list_tag_provenance("ahu-9").await;
+        assert_eq!(all.len(), 3);
+        assert_eq!(all["discharge"].source, "heuristic");
+
+        std::fs::remove_file("/tmp/test_entity_provenance.db").ok();
+    }
+
+    #[tokio::test]
+    async fn tag_provenance_overwrite() {
+        let store = test_store("entity_provenance_overwrite");
+        store
+            .create_entity("p1", "point", "P1", None, vec![])
+            .await
+            .unwrap();
+
+        store
+            .set_tag_provenance("p1", "kind", TagProvenance::heuristic("guess"))
+            .await
+            .unwrap();
+        let first = store.get_tag_provenance("p1", "kind").await.unwrap();
+        assert_eq!(first.source, "heuristic");
+
+        // User corrects the auto-tag — provenance flips to manual.
+        store
+            .set_tag_provenance("p1", "kind", TagProvenance::manual())
+            .await
+            .unwrap();
+        let second = store.get_tag_provenance("p1", "kind").await.unwrap();
+        assert_eq!(second.source, "manual");
+        assert!(second.confidence.is_none());
+
+        std::fs::remove_file("/tmp/test_entity_provenance_overwrite.db").ok();
+    }
+
+    #[tokio::test]
+    async fn tag_provenance_cascade_on_entity_delete() {
+        let store = test_store("entity_provenance_cascade");
+        store
+            .create_entity("d1", "equip", "D1", None, vec![])
+            .await
+            .unwrap();
+        store
+            .set_tag_provenance("d1", "ahu", TagProvenance::atlas(0.9, "x"))
+            .await
+            .unwrap();
+        assert!(store.get_tag_provenance("d1", "ahu").await.is_some());
+
+        store.delete_entity("d1").await.unwrap();
+        assert!(store.get_tag_provenance("d1", "ahu").await.is_none());
+
+        std::fs::remove_file("/tmp/test_entity_provenance_cascade.db").ok();
     }
 }

@@ -1137,6 +1137,62 @@ async fn accept_device_default_populates_tags() {
     );
 }
 
+/// Default accept records tag provenance — every auto-generated tag gets
+/// a row in entity_tag_provenance with source `"heuristic"` (Atlas off
+/// in this build) and an evidence string referring to the input name.
+#[tokio::test]
+async fn accept_device_records_tag_provenance() {
+    let (svc, _ps, _ns, ds, es) = test_service("accept_records_provenance").await;
+    let device_id = "bacnet-3500";
+    upsert_device_and_points(&ds, device_id).await;
+
+    svc.accept_device(device_id).await.expect("accept");
+
+    let equip_provenance = es.list_tag_provenance(device_id).await;
+    assert!(
+        !equip_provenance.is_empty(),
+        "default accept should record provenance for every equip tag"
+    );
+    for (_tag, prov) in &equip_provenance {
+        assert_eq!(prov.source, "heuristic", "atlas off, expect heuristic");
+        assert!(prov.evidence.is_some());
+        assert_eq!(prov.taxonomy.as_deref(), Some("haystack-5"));
+    }
+
+    let point_provenance = es
+        .list_tag_provenance(&format!("{device_id}/discharge-air-temp"))
+        .await;
+    assert!(
+        !point_provenance.is_empty(),
+        "default accept should record provenance for point tags"
+    );
+}
+
+/// skip_auto_tag => no provenance rows (no auto-tags written).
+#[tokio::test]
+async fn accept_device_skip_auto_tag_writes_no_provenance() {
+    use crate::discovery::service::AcceptOptions;
+
+    let (svc, _ps, _ns, ds, es) = test_service("accept_skip_no_provenance").await;
+    let device_id = "bacnet-3501";
+    upsert_device_and_points(&ds, device_id).await;
+    svc.accept_device_with_options(
+        device_id,
+        AcceptOptions {
+            skip_auto_tag: true,
+            target_space_id: None,
+        },
+    )
+    .await
+    .expect("accept");
+
+    assert!(es.list_tag_provenance(device_id).await.is_empty());
+    assert!(es
+        .list_tag_provenance(&format!("{device_id}/discharge-air-temp"))
+        .await
+        .is_empty());
+}
+
 /// `AcceptOptions::skip_auto_tag` opts out of Haystack auto-tagging entirely.
 /// Equip and point entities are created with empty tag sets so consumers can
 /// apply their own taxonomy via the entity API.

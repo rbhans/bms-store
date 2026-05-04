@@ -21,7 +21,7 @@ use crate::haystack::auto_tag::{suggest_equip_tags, suggest_point_tags_multi};
 use crate::haystack::provider::Haystack5Provider;
 use crate::node::{Node, NodeCapabilities, NodeType};
 use crate::store::discovery_store::DiscoveryStore;
-use crate::store::entity_store::EntityStore;
+use crate::store::entity_store::{EntityStore, TagProvenance};
 use crate::store::node_store::NodeStore;
 use crate::store::point_store::{PointKey, PointStore};
 
@@ -742,27 +742,51 @@ impl DiscoveryService {
 
         // 2. Auto-tag equipment — Atlas first, fallback to heuristics.
         //    Skipped when AcceptOptions::skip_auto_tag is set (Haystack opt-out).
-        let equip_tags: Vec<(String, Option<String>)> = if opts.skip_auto_tag {
-            Vec::new()
-        } else {
-            #[cfg(feature = "atlas")]
-            {
-                if let Some(ref atlas) = atlas_snapshot {
-                    if let Some(m) = atlas.match_equipment(&device.display_name) {
-                        tracing::debug!(device_id, alias = %m.matched_alias, confidence = m.confidence, "Atlas equipment match");
-                        crate::atlas::matcher::AtlasMatcher::suggest_equip_tags(&m.equipment)
+        //    `equip_provenance` is the source for every tag in `equip_tags`;
+        //    written to entity_tag_provenance after the entity exists.
+        let (equip_tags, equip_provenance): (Vec<(String, Option<String>)>, Option<TagProvenance>) =
+            if opts.skip_auto_tag {
+                (Vec::new(), None)
+            } else {
+                #[cfg(feature = "atlas")]
+                {
+                    if let Some(ref atlas) = atlas_snapshot {
+                        if let Some(m) = atlas.match_equipment(&device.display_name) {
+                            tracing::debug!(device_id, alias = %m.matched_alias, confidence = m.confidence, "Atlas equipment match");
+                            (
+                                crate::atlas::matcher::AtlasMatcher::suggest_equip_tags(&m.equipment),
+                                Some(TagProvenance::atlas(m.confidence as f32, m.matched_alias.clone())),
+                            )
+                        } else {
+                            (
+                                suggest_equip_tags(&device.display_name, &provider),
+                                Some(TagProvenance::heuristic(format!(
+                                    "name='{}'",
+                                    device.display_name
+                                ))),
+                            )
+                        }
                     } else {
-                        suggest_equip_tags(&device.display_name, &provider)
+                        (
+                            suggest_equip_tags(&device.display_name, &provider),
+                            Some(TagProvenance::heuristic(format!(
+                                "name='{}'",
+                                device.display_name
+                            ))),
+                        )
                     }
-                } else {
-                    suggest_equip_tags(&device.display_name, &provider)
                 }
-            }
-            #[cfg(not(feature = "atlas"))]
-            {
-                suggest_equip_tags(&device.display_name, &provider)
-            }
-        };
+                #[cfg(not(feature = "atlas"))]
+                {
+                    (
+                        suggest_equip_tags(&device.display_name, &provider),
+                        Some(TagProvenance::heuristic(format!(
+                            "name='{}'",
+                            device.display_name
+                        ))),
+                    )
+                }
+            };
 
         // 3. Create equip entity with tags
         if let Err(e) = self
@@ -777,6 +801,19 @@ impl DiscoveryService {
             .await
         {
             tracing::warn!(device_id, "Failed to create equip entity: {e}");
+        }
+
+        // 3b. Record provenance for every equip tag we wrote.
+        if let Some(ref prov) = equip_provenance {
+            for (tag_name, _) in &equip_tags {
+                if let Err(e) = self
+                    .entity_store
+                    .set_tag_provenance(device_id, tag_name, prov.clone())
+                    .await
+                {
+                    tracing::warn!(device_id, %tag_name, "Failed to record tag provenance: {e}");
+                }
+            }
         }
 
         // Build equip_tags as HashMap for point tagging
@@ -801,45 +838,83 @@ impl DiscoveryService {
             // Auto-tag point — Atlas first, fallback to heuristics.
             // Skipped when AcceptOptions::skip_auto_tag is set (Haystack opt-out).
             let names: Vec<&str> = vec![&pt.id, &pt.display_name];
-            let point_tags: Vec<(String, Option<String>)> = if opts.skip_auto_tag {
-                Vec::new()
-            } else {
-                #[cfg(feature = "atlas")]
-                {
-                    if let Some(ref atlas) = atlas_snapshot {
-                        if let Some(m) = atlas.match_point(&names, pt.units.as_deref()) {
-                            tracing::debug!(point = %pt.id, alias = %m.matched_alias, confidence = m.confidence, "Atlas point match");
-                            let tags =
-                                crate::atlas::matcher::AtlasMatcher::suggest_point_tags(&m.point);
-                            // Store atlas_point_id as a property for traceability
-                            let point_node_id_for_prop = format!("{}/{}", device_id, pt.id);
-                            let _ = self
-                                .node_store
-                                .set_property(&point_node_id_for_prop, "atlasPointId", &m.point.id)
-                                .await;
-                            tags
+            let (point_tags, point_provenance): (Vec<(String, Option<String>)>, Option<TagProvenance>) =
+                if opts.skip_auto_tag {
+                    (Vec::new(), None)
+                } else {
+                    #[cfg(feature = "atlas")]
+                    {
+                        if let Some(ref atlas) = atlas_snapshot {
+                            if let Some(m) = atlas.match_point(&names, pt.units.as_deref()) {
+                                tracing::debug!(point = %pt.id, alias = %m.matched_alias, confidence = m.confidence, "Atlas point match");
+                                let tags = crate::atlas::matcher::AtlasMatcher::suggest_point_tags(
+                                    &m.point,
+                                );
+                                // Store atlas_point_id as a property for traceability
+                                let point_node_id_for_prop = format!("{}/{}", device_id, pt.id);
+                                let _ = self
+                                    .node_store
+                                    .set_property(
+                                        &point_node_id_for_prop,
+                                        "atlasPointId",
+                                        &m.point.id,
+                                    )
+                                    .await;
+                                (
+                                    tags,
+                                    Some(TagProvenance::atlas(
+                                        m.confidence as f32,
+                                        m.matched_alias.clone(),
+                                    )),
+                                )
+                            } else {
+                                (
+                                    suggest_point_tags_multi(
+                                        &names,
+                                        pt.units.as_deref(),
+                                        &equip_tag_map,
+                                        &provider,
+                                    ),
+                                    Some(TagProvenance::heuristic(format!(
+                                        "name='{}' units='{}'",
+                                        pt.display_name,
+                                        pt.units.as_deref().unwrap_or("")
+                                    ))),
+                                )
+                            }
                         } else {
+                            (
+                                suggest_point_tags_multi(
+                                    &names,
+                                    pt.units.as_deref(),
+                                    &equip_tag_map,
+                                    &provider,
+                                ),
+                                Some(TagProvenance::heuristic(format!(
+                                    "name='{}' units='{}'",
+                                    pt.display_name,
+                                    pt.units.as_deref().unwrap_or("")
+                                ))),
+                            )
+                        }
+                    }
+                    #[cfg(not(feature = "atlas"))]
+                    {
+                        (
                             suggest_point_tags_multi(
                                 &names,
                                 pt.units.as_deref(),
                                 &equip_tag_map,
                                 &provider,
-                            )
-                        }
-                    } else {
-                        suggest_point_tags_multi(
-                            &names,
-                            pt.units.as_deref(),
-                            &equip_tag_map,
-                            &provider,
+                            ),
+                            Some(TagProvenance::heuristic(format!(
+                                "name='{}' units='{}'",
+                                pt.display_name,
+                                pt.units.as_deref().unwrap_or("")
+                            ))),
                         )
                     }
-                }
-                #[cfg(not(feature = "atlas"))]
-                {
-                    suggest_point_tags_multi(&names, pt.units.as_deref(), &equip_tag_map, &provider)
-                }
-            };
+                };
 
             // Create point entity
             if let Err(e) = self
@@ -849,11 +924,28 @@ impl DiscoveryService {
                     "point",
                     &pt.display_name,
                     Some(device_id),
-                    point_tags,
+                    point_tags.clone(),
                 )
                 .await
             {
                 tracing::warn!(point_node_id, "Failed to create point entity: {e}");
+            }
+
+            // Record tag provenance for every auto-generated tag.
+            if let Some(ref prov) = point_provenance {
+                for (tag_name, _) in &point_tags {
+                    if let Err(e) = self
+                        .entity_store
+                        .set_tag_provenance(&point_node_id, tag_name, prov.clone())
+                        .await
+                    {
+                        tracing::warn!(
+                            point_node_id,
+                            %tag_name,
+                            "Failed to record tag provenance: {e}"
+                        );
+                    }
+                }
             }
 
             // Set equipRef on point entity
