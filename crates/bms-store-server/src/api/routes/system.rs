@@ -1,24 +1,15 @@
 use axum::extract::State;
 use axum::Json;
-use serde::Serialize;
+
+use bms_store_domain::system::{
+    CapabilitiesResponse, ComponentHealth, HealthResponse, SystemInfoResponse,
+};
 
 use crate::api::auth::{require_permission, AuthUser};
 use crate::api::error::ApiError;
 use crate::api::ApiState;
 use crate::auth::Permission;
 use crate::backup::{BackupConfig, BackupInfo};
-
-#[derive(Serialize)]
-pub struct HealthResponse {
-    pub status: String,
-    pub components: Vec<ComponentHealth>,
-}
-
-#[derive(Serialize)]
-pub struct ComponentHealth {
-    pub name: String,
-    pub status: String,
-}
 
 /// GET /api/health — no auth required
 pub async fn health(State(state): State<ApiState>) -> Json<HealthResponse> {
@@ -57,21 +48,6 @@ pub async fn health(State(state): State<ApiState>) -> Json<HealthResponse> {
         status: if all_healthy { "healthy" } else { "degraded" }.to_string(),
         components,
     })
-}
-
-#[derive(Serialize)]
-pub struct SystemInfoResponse {
-    pub version: String,
-    pub point_count: usize,
-    pub device_count: usize,
-    pub scenario_name: String,
-}
-
-#[derive(Serialize)]
-pub struct CapabilitiesResponse {
-    pub version: String,
-    pub bridges: Vec<String>,
-    pub features: Vec<String>,
 }
 
 /// GET /api/system/info
