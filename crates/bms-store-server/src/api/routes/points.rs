@@ -1,6 +1,8 @@
 use axum::extract::{Path, Query, State};
 use axum::Json;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+
+use bms_store_domain::points::{PointResponse, WriteRequest, WriteResponse};
 
 use crate::api::auth::{require_permission, AuthUser};
 use crate::api::error::ApiError;
@@ -11,20 +13,6 @@ use crate::auth::Permission;
 use crate::config::profile::PointValue;
 use crate::store::audit_store::{AuditAction, AuditEntryBuilder};
 use crate::store::point_store::{PointKey, TimestampedValue};
-
-#[derive(Serialize)]
-pub struct PointResponse {
-    pub device_id: String,
-    pub point_id: String,
-    /// The effective display value: canonical string if a value map is present,
-    /// otherwise the raw numeric/bool value.
-    pub value: serde_json::Value,
-    /// Raw numeric/bool value as stored from the protocol.  Always present.
-    pub raw_value: serde_json::Value,
-    /// True when `value` has been mapped through a per-point enum value map.
-    pub value_mapped: bool,
-    pub status: Vec<&'static str>,
-}
 
 fn point_value_json(v: &PointValue) -> serde_json::Value {
     match v {
@@ -51,7 +39,14 @@ fn tv_to_response(device_id: String, point_id: String, tv: &TimestampedValue, ra
         value,
         raw_value,
         value_mapped,
-        status: tv.status.active_flags(),
+        status: tv
+            .status
+            .active_flags()
+            .into_iter()
+            .map(String::from)
+            .collect(),
+        ingest_ts_ms: tv.ingest_ts_ms,
+        source_ts_ms: tv.source_ts_ms,
     }
 }
 
@@ -134,20 +129,13 @@ pub async fn get_point(
     Ok(Json(tv_to_response(device_id, point_id, &tv, q.raw)))
 }
 
-#[derive(Deserialize)]
-pub struct WriteRequest {
-    pub value: serde_json::Value,
-    pub priority: Option<u8>,
-    pub expires_ms: Option<i64>,
-}
-
 /// POST /api/points/:device_id/:point_id/write
 pub async fn write_point(
     State(state): State<ApiState>,
     auth: AuthUser,
     Path((device_id, point_id)): Path<(String, String)>,
     Json(req): Json<WriteRequest>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<Json<WriteResponse>, ApiError> {
     let perms = state.user_store.get_all_role_permissions().await;
     require_permission(&auth, Permission::WritePoints, &perms)?;
 
@@ -215,7 +203,7 @@ pub async fn write_point(
                 )
                 .await;
 
-            Ok(Json(serde_json::json!({"ok": true})))
+            Ok(Json(WriteResponse { ok: true }))
         }
         Err(e) => Err(ApiError::Internal(e.to_string())),
     }
