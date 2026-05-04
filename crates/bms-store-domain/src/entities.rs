@@ -9,9 +9,10 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// One entity row.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct EntityResponse {
     pub id: String,
     pub entity_type: String,
@@ -25,7 +26,7 @@ pub struct EntityResponse {
 }
 
 /// Query string for `GET /api/entities`.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, ToSchema)]
 pub struct ListEntitiesQuery {
     /// Haystack-4 filter expression. Empty / absent returns all rows
     /// (subject to `limit`).

@@ -7,10 +7,11 @@
 //! types — this module is the wire contract only.
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Query string fragment used by list endpoints. Either `offset` or
 /// `cursor` may be set; `cursor` is the recommended round-tripped form.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub struct PaginationParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<i64>,
@@ -24,8 +25,8 @@ pub struct PaginationParams {
 /// and `offset` echo the resolved values used for this page.
 /// `next_cursor` is set when more pages remain — pass it back as
 /// `?cursor=...` to fetch the next page.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct PaginatedResponse<T> {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
+pub struct PaginatedResponse<T: ToSchema> {
     pub items: Vec<T>,
     pub total: i64,
     pub limit: i64,

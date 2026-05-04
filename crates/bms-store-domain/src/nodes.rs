@@ -10,9 +10,10 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// One node row — site / space / equip / point / virtual_point.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct NodeResponse {
     pub id: String,
     pub node_type: String,
@@ -31,7 +32,7 @@ pub struct NodeResponse {
 
 /// Per-node capability flags. Drives UI affordances — e.g. "Write" button
 /// only appears when `writable` is true.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct NodeCapabilitiesResponse {
     pub readable: bool,
     pub writable: bool,
@@ -42,7 +43,7 @@ pub struct NodeCapabilitiesResponse {
 
 /// `POST /api/nodes` body. `tags` are sent as ordered (k, v) pairs to
 /// preserve insertion order on round-trip.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct CreateNodeRequest {
     pub id: String,
     pub node_type: String,
@@ -56,7 +57,7 @@ pub struct CreateNodeRequest {
 /// `PUT /api/nodes/:id` body — partial update. `parent_id: Some("")`
 /// reparents to root; `Some(other)` reparents to other; `None` leaves
 /// the parent untouched.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct UpdateNodeRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dis: Option<String>,
@@ -65,7 +66,7 @@ pub struct UpdateNodeRequest {
 }
 
 /// `PUT /api/nodes/:id/tags` body. Replaces the tag set wholesale.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct SetTagsRequest {
     pub tags: Vec<(String, Option<String>)>,
 }

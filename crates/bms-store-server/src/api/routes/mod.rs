@@ -26,8 +26,20 @@ use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use super::auth;
+use super::openapi as openapi_module;
 use super::ws;
 use super::ApiState;
+
+/// `GET /api/openapi.json` — serves the bms-store OpenAPI 3.1 spec
+/// generated from utoipa schemas in `super::openapi`. No auth (the
+/// spec is public; consumers that don't have an API key still need to
+/// know the wire shapes).
+async fn openapi_json() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "application/json")],
+        openapi_module::openapi_json_string(),
+    )
+}
 
 pub fn build_router(state: ApiState) -> Router {
     // CORS: configurable via OPENCRATE_CORS_ORIGINS env var
@@ -242,7 +254,9 @@ pub fn build_router(state: ApiState) -> Router {
         .route(
             "/export/connectors/{id}/backfill",
             post(export::backfill_connector),
-        );
+        )
+        // OpenAPI spec — generated from utoipa schemas in api::openapi
+        .route("/openapi.json", get(openapi_json));
 
     // WebSocket
     let api = api.route("/ws", get(ws::ws_handler));

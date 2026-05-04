@@ -4,6 +4,7 @@
 //! `/ws` WebSocket value-change events.
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Latest known value for a single point, returned by `GET /api/points/...`.
 ///
@@ -27,7 +28,7 @@ use serde::{Deserialize, Serialize};
 /// when the protocol provides one (BACnet COV TimeStamp, BACnet TrendLog,
 /// MQTT message timestamps). `None` otherwise — consumers should fall
 /// back to `ingest_ts_ms`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct PointResponse {
     pub device_id: String,
     pub point_id: String,
@@ -52,7 +53,7 @@ pub struct PointResponse {
 /// `expires_ms` is the Unix-ms wall-clock at which the override should
 /// auto-release. Omit for indefinite override; the override engine
 /// records the entry and the operator can release manually.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct WriteRequest {
     pub value: serde_json::Value,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -66,7 +67,7 @@ pub struct WriteRequest {
 /// `ok` is `true` on success. The HTTP status carries failure semantics —
 /// a 200 with `ok: false` does not occur. Future fields (e.g. echoed
 /// override id) may be added; consumers should ignore unknown fields.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct WriteResponse {
     pub ok: bool,
 }

@@ -3,24 +3,25 @@
 //! the server-status header and the about panel.
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// `GET /api/health`. `status` is `"healthy"` when every component is
 /// green, otherwise `"degraded"`. `components` is the per-subsystem
 /// breakdown — each entry's `status` follows the same vocabulary.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct HealthResponse {
     pub status: String,
     pub components: Vec<ComponentHealth>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct ComponentHealth {
     pub name: String,
     pub status: String,
 }
 
 /// `GET /api/system/info` — server version + scenario summary.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct SystemInfoResponse {
     pub version: String,
     pub point_count: usize,
@@ -31,7 +32,7 @@ pub struct SystemInfoResponse {
 /// `GET /api/system/capabilities` — what protocols and feature flags
 /// this build supports. Use to gate UI affordances (e.g. show the
 /// BACnet network panel only when `bridges` contains `"bacnet"`).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct CapabilitiesResponse {
     pub version: String,
     pub bridges: Vec<String>,
