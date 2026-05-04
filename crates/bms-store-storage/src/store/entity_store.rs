@@ -1880,7 +1880,7 @@ mod tests {
 
     #[tokio::test]
     async fn tag_provenance_set_get_list() {
-        let store = test_store("entity_provenance");
+        let store = test_store("/tmp/test_entity_provenance.db");
 
         store
             .create_entity("ahu-9", "equip", "AHU-9", None, vec![])
@@ -1923,7 +1923,7 @@ mod tests {
 
     #[tokio::test]
     async fn tag_provenance_overwrite() {
-        let store = test_store("entity_provenance_overwrite");
+        let store = test_store("/tmp/test_entity_provenance_overwrite.db");
         store
             .create_entity("p1", "point", "P1", None, vec![])
             .await
@@ -1950,7 +1950,7 @@ mod tests {
 
     #[tokio::test]
     async fn tag_provenance_cascade_on_entity_delete() {
-        let store = test_store("entity_provenance_cascade");
+        let store = test_store("/tmp/test_entity_provenance_cascade.db");
         store
             .create_entity("d1", "equip", "D1", None, vec![])
             .await
