@@ -13,6 +13,7 @@ use crate::health::HealthRegistry;
 use crate::logic::store::{start_program_store_with_path, ProgramStore};
 use crate::mqtt::publisher::MqttPublisher;
 use crate::project::{load_project_meta, ProjectPaths};
+use crate::protocol::normalize::{empty_value_map_cache, spawn_value_map_refresher, ValueMapCache};
 use crate::store::audit_store::{start_audit_store_with_path, AuditStore};
 use crate::store::naming_rule_store::{start_naming_rule_store_with_path, NamingRuleStore};
 use crate::store::discovery_store::{
@@ -55,6 +56,11 @@ pub struct StorageRuntime {
     pub override_store: OverrideStore,
     pub user_store: UserStore,
     pub event_journal: Option<EventJournal>,
+    /// Shared per-node ValueMap cache. Populated by a background task that
+    /// rebuilds whenever the EntityStore changes. Bridges receive an Arc
+    /// clone (via `BridgeRuntime` plumbing) so canonical strings are
+    /// available on every value write without per-write entity lookups.
+    pub value_map_cache: ValueMapCache,
     pub shutdown: CancellationToken,
 }
 
@@ -163,6 +169,12 @@ pub async fn boot_project_with_shutdown(
         shutdown.clone(),
     );
 
+    // Spawn the per-node ValueMap refresher. Bridges receive a clone of
+    // the cache so canonical strings populate alongside raw values on
+    // every protocol write.
+    let value_map_cache = empty_value_map_cache();
+    let _ = spawn_value_map_refresher(entity_store.clone(), value_map_cache.clone());
+
     tracing::info!(
         project = %paths.root.display(),
         devices = loaded.devices.len(),
@@ -189,6 +201,7 @@ pub async fn boot_project_with_shutdown(
         override_store,
         user_store,
         event_journal,
+        value_map_cache,
         shutdown,
     })
 }

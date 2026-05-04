@@ -22,8 +22,35 @@ pub struct TimestampedValue {
     /// no entry in the map.  Always populated by the bridge layer; cleared if
     /// the enum tag is removed.
     pub canonical_value: Option<String>,
+    /// Monotonic clock instant of the last update — used for stale detection
+    /// and elapsed-time math. Not wall clock; do NOT serialize.
     pub timestamp: Instant,
+    /// Wall-clock time (Unix milliseconds) when bms-store accepted the value.
+    /// Always populated; safe to serialize to consumers.
+    pub ingest_ts_ms: i64,
+    /// Wall-clock time (Unix milliseconds) when the source device measured
+    /// the value, when the protocol provides it (BACnet COV TimeStamp,
+    /// BACnet TrendLog, MQTT message timestamp, etc.). `None` when the
+    /// protocol does not provide a source timestamp — consumers should
+    /// fall back to `ingest_ts_ms`.
+    pub source_ts_ms: Option<i64>,
     pub status: PointStatusFlags,
+}
+
+impl TimestampedValue {
+    /// Best-effort wall-clock timestamp: source if present, else ingest.
+    /// Use this when displaying a single timestamp to a consumer.
+    pub fn effective_ts_ms(&self) -> i64 {
+        self.source_ts_ms.unwrap_or(self.ingest_ts_ms)
+    }
+}
+
+/// Current wall-clock in Unix milliseconds.
+fn now_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
 }
 
 #[derive(Clone)]
@@ -68,32 +95,52 @@ impl PointStore {
     }
 
     pub fn set(&self, key: PointKey, value: PointValue) {
+        self.set_full(key, value, None, None, None)
+    }
+
+    /// Lowest-level set — every other set/insert helper funnels through here.
+    /// `canonical_override` Some(x) writes x; None preserves the existing
+    /// canonical value. `source_ts_ms` is the protocol-supplied measurement
+    /// timestamp when available. `status_override` Some(flags) replaces the
+    /// status bitfield; None preserves existing.
+    pub fn set_full(
+        &self,
+        key: PointKey,
+        value: PointValue,
+        canonical_override: Option<Option<String>>,
+        source_ts_ms: Option<i64>,
+        status_override: Option<PointStatusFlags>,
+    ) {
         let _ = self.history_tx.send((key.clone(), value.clone()));
+        let ingest_ts = now_ms();
         let mut data = self.data.write().unwrap_or_else(|e| e.into_inner());
         let existing = data.get(&key);
         let existing_status = existing.map(|tv| tv.status).unwrap_or_default();
         let existing_canonical = existing.and_then(|tv| tv.canonical_value.clone());
+        let canonical = match canonical_override {
+            Some(c) => c,
+            None => existing_canonical,
+        };
+        let status = status_override.unwrap_or(existing_status);
         data.insert(
             key.clone(),
             TimestampedValue {
                 value: value.clone(),
-                canonical_value: existing_canonical,
+                canonical_value: canonical,
                 timestamp: Instant::now(),
-                status: existing_status,
+                ingest_ts_ms: ingest_ts,
+                source_ts_ms,
+                status,
             },
         );
         drop(data);
         self.version_tx.send_modify(|v| *v += 1);
 
         if let Some(ref bus) = self.event_bus {
-            let now_ms = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as i64;
             bus.publish(Event::ValueChanged {
                 node_id: format!("{}/{}", key.device_instance_id, key.point_id),
                 value,
-                timestamp_ms: now_ms,
+                timestamp_ms: source_ts_ms.unwrap_or(ingest_ts),
             });
         }
     }
@@ -103,75 +150,35 @@ impl PointStore {
     ///
     /// The canonical value is returned by API handlers when `?raw=true` is NOT set.
     pub fn set_with_canonical(&self, key: PointKey, value: PointValue, canonical: Option<String>) {
-        let _ = self.history_tx.send((key.clone(), value.clone()));
-        let mut data = self.data.write().unwrap_or_else(|e| e.into_inner());
-        let existing_status = data.get(&key).map(|tv| tv.status).unwrap_or_default();
-        data.insert(
-            key.clone(),
-            TimestampedValue {
-                value: value.clone(),
-                canonical_value: canonical,
-                timestamp: Instant::now(),
-                status: existing_status,
-            },
-        );
-        drop(data);
-        self.version_tx.send_modify(|v| *v += 1);
+        self.set_full(key, value, Some(canonical), None, None)
+    }
 
-        if let Some(ref bus) = self.event_bus {
-            let now_ms = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as i64;
-            bus.publish(Event::ValueChanged {
-                node_id: format!("{}/{}", key.device_instance_id, key.point_id),
-                value,
-                timestamp_ms: now_ms,
-            });
-        }
+    /// Like `set_with_canonical`, but also takes a protocol-supplied source
+    /// timestamp (Unix milliseconds). Use from bridges that have a measured
+    /// timestamp from the device (BACnet COV, BACnet TrendLog, MQTT message
+    /// timestamps).
+    pub fn set_with_source_ts(
+        &self,
+        key: PointKey,
+        value: PointValue,
+        canonical: Option<String>,
+        source_ts_ms: i64,
+    ) {
+        self.set_full(key, value, Some(canonical), Some(source_ts_ms), None)
     }
 
     /// Like `set`, but only fires events/history if the value actually changed.
     /// Use in poll loops to avoid duplicate events when the device returns the same value.
     pub fn set_if_changed(&self, key: PointKey, value: PointValue) {
-        let mut data = self.data.write().unwrap_or_else(|e| e.into_inner());
-        let existing_status;
-        let existing_canonical;
-        if let Some(existing) = data.get(&key) {
-            if existing.value == value {
-                return;
+        {
+            let data = self.data.read().unwrap_or_else(|e| e.into_inner());
+            if let Some(existing) = data.get(&key) {
+                if existing.value == value {
+                    return;
+                }
             }
-            existing_status = existing.status;
-            existing_canonical = existing.canonical_value.clone();
-        } else {
-            existing_status = PointStatusFlags::default();
-            existing_canonical = None;
         }
-        data.insert(
-            key.clone(),
-            TimestampedValue {
-                value: value.clone(),
-                canonical_value: existing_canonical,
-                timestamp: Instant::now(),
-                status: existing_status,
-            },
-        );
-        drop(data);
-
-        let _ = self.history_tx.send((key.clone(), value.clone()));
-        self.version_tx.send_modify(|v| *v += 1);
-
-        if let Some(ref bus) = self.event_bus {
-            let now_ms = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as i64;
-            bus.publish(Event::ValueChanged {
-                node_id: format!("{}/{}", key.device_instance_id, key.point_id),
-                value,
-                timestamp_ms: now_ms,
-            });
-        }
+        self.set_full(key, value, None, None, None);
     }
 
     pub fn get_all_for_device(
@@ -188,6 +195,7 @@ impl PointStore {
     }
 
     pub fn initialize_from_profile(&self, device_instance_id: &str, profile: &DeviceProfile) {
+        let now = now_ms();
         for point in &profile.points {
             if let Some(initial) = &point.initial_value {
                 let key = PointKey {
@@ -198,6 +206,8 @@ impl PointStore {
                     value: initial.clone(),
                     canonical_value: None,
                     timestamp: Instant::now(),
+                    ingest_ts_ms: now,
+                    source_ts_ms: None,
                     status: PointStatusFlags::default(),
                 };
                 self.data
@@ -305,11 +315,14 @@ impl PointStore {
     /// Does NOT fire events, history, or version bumps.
     /// Use this for hydration/acceptance to avoid spurious notifications.
     pub fn insert_default(&self, key: PointKey, value: PointValue) {
+        let now = now_ms();
         let mut data = self.data.write().unwrap_or_else(|e| e.into_inner());
         data.entry(key).or_insert_with(|| TimestampedValue {
             value,
             canonical_value: None,
             timestamp: Instant::now(),
+            ingest_ts_ms: now,
+            source_ts_ms: None,
             status: PointStatusFlags::default(),
         });
     }

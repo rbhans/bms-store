@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::{Arc, RwLock};
 
 use crate::config::profile::PointValue;
 use crate::event::bus::{Event, EventBus};
@@ -8,6 +8,98 @@ use crate::store::node_store::NodeStore;
 use crate::store::point_store::PointStore;
 
 use super::{RawProtocolValue, ValueSink};
+
+/// Per-point raw → canonical string mapping read from the entity's `enum`
+/// tag. This duplicates `bms_store_bridges::normalize::value_map::ValueMap`
+/// (storage cannot depend on bridges), kept minimal — see that module for
+/// full semantics. Stored as a flat BTreeMap so the lookup is allocation-free.
+#[derive(Debug, Clone, Default)]
+pub struct ValueMap {
+    pub entries: BTreeMap<String, String>,
+}
+
+impl ValueMap {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn from_json(json: &str) -> Option<Self> {
+        let entries: BTreeMap<String, String> = serde_json::from_str(json).ok()?;
+        Some(ValueMap { entries })
+    }
+    pub fn lookup(&self, raw: &PointValue) -> Option<String> {
+        let key = match raw {
+            PointValue::Bool(b) => {
+                if *b {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            }
+            PointValue::Integer(i) => i.to_string(),
+            PointValue::Float(f) => f.to_string(),
+        };
+        self.entries.get(&key).cloned()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+}
+
+/// Shared cache of per-node ValueMap entries. Bridges hold an Arc clone and
+/// look up canonical mappings on every value write. The cache is rebuilt by
+/// a background task subscribed to the EntityStore version watch.
+pub type ValueMapCache = Arc<RwLock<HashMap<NodeId, ValueMap>>>;
+
+/// Construct an empty ValueMapCache. Use as a default when no entity-driven
+/// cache is wired (canonical lookup becomes a no-op).
+pub fn empty_value_map_cache() -> ValueMapCache {
+    Arc::new(RwLock::new(HashMap::new()))
+}
+
+/// Rebuild the cache from a fresh entity snapshot. Iterates entities,
+/// reads the `enum` tag (JSON ValueMap) and writes the parsed map into the
+/// cache keyed by entity id. Entities without an `enum` tag get an empty
+/// map (so a stale cache entry for a now-untagged point falls through to
+/// raw-only writes). Call this on EntityStore version bumps.
+pub fn rebuild_value_map_cache(
+    cache: &ValueMapCache,
+    entities: &[crate::store::entity_store::Entity],
+) {
+    let mut next: HashMap<NodeId, ValueMap> = HashMap::with_capacity(entities.len());
+    for ent in entities {
+        if let Some(Some(json)) = ent.tags.get("enum") {
+            if let Some(vm) = ValueMap::from_json(json) {
+                if !vm.is_empty() {
+                    next.insert(ent.id.clone(), vm);
+                }
+            }
+        }
+    }
+    if let Ok(mut guard) = cache.write() {
+        *guard = next;
+    }
+}
+
+/// Spawn a background task that subscribes to EntityStore version updates
+/// and rebuilds the ValueMap cache on every change. Returns immediately.
+/// The task ends when the EntityStore version watch channel is closed
+/// (i.e. when the EntityStore is dropped).
+pub fn spawn_value_map_refresher(
+    entity_store: crate::store::entity_store::EntityStore,
+    cache: ValueMapCache,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        // Initial fill
+        let initial = entity_store.list_entities(None, None).await;
+        rebuild_value_map_cache(&cache, &initial);
+
+        let mut rx = entity_store.subscribe();
+        while rx.changed().await.is_ok() {
+            let snapshot = entity_store.list_entities(None, None).await;
+            rebuild_value_map_cache(&cache, &snapshot);
+        }
+    })
+}
 
 /// Trait for converting raw protocol values to (NodeId, PointValue) pairs.
 pub trait Normalizer: Send + Sync {
@@ -144,6 +236,10 @@ pub struct PointStoreValueSink {
     normalizer: Arc<dyn Normalizer>,
     store: PointStore,
     event_bus: Option<EventBus>,
+    /// Optional shared per-node ValueMap cache. When set, writes use
+    /// `set_with_canonical` so consumers see the canonical string
+    /// (e.g. "OFF"/"ON") alongside the raw value.
+    value_maps: Option<ValueMapCache>,
 }
 
 impl PointStoreValueSink {
@@ -152,11 +248,17 @@ impl PointStoreValueSink {
             normalizer,
             store,
             event_bus: None,
+            value_maps: None,
         }
     }
 
     pub fn with_event_bus(mut self, bus: EventBus) -> Self {
         self.event_bus = Some(bus);
+        self
+    }
+
+    pub fn with_value_maps(mut self, cache: ValueMapCache) -> Self {
+        self.value_maps = Some(cache);
         self
     }
 }
@@ -170,7 +272,17 @@ impl ValueSink for PointStoreValueSink {
                     device_instance_id: dev.to_string(),
                     point_id: pt.to_string(),
                 };
-                self.store.set(key, value);
+                let canonical = self
+                    .value_maps
+                    .as_ref()
+                    .and_then(|cache| cache.read().ok().and_then(|guard| {
+                        guard.get(&node_id).and_then(|vm| vm.lookup(&value))
+                    }));
+                if canonical.is_some() {
+                    self.store.set_with_canonical(key, value, canonical);
+                } else {
+                    self.store.set(key, value);
+                }
             }
         }
     }
@@ -298,5 +410,113 @@ mod tests {
             serde_json::json!({"value": true}),
         );
         assert!(norm.normalize(&raw).is_none());
+    }
+
+    // ---------------------------------------------------------------------
+    // ValueMap + cache wiring
+    // ---------------------------------------------------------------------
+
+    #[test]
+    fn value_map_lookup_bool_int() {
+        let vm = ValueMap::from_json(r#"{"true":"ON","false":"OFF","0":"OFF","1":"ON"}"#).unwrap();
+        assert_eq!(vm.lookup(&PointValue::Bool(true)).as_deref(), Some("ON"));
+        assert_eq!(vm.lookup(&PointValue::Bool(false)).as_deref(), Some("OFF"));
+        assert_eq!(vm.lookup(&PointValue::Integer(1)).as_deref(), Some("ON"));
+        assert_eq!(vm.lookup(&PointValue::Integer(0)).as_deref(), Some("OFF"));
+        assert!(vm.lookup(&PointValue::Integer(99)).is_none());
+    }
+
+    #[test]
+    fn rebuild_value_map_cache_filters_empty_and_invalid() {
+        use crate::store::entity_store::Entity;
+        let cache = empty_value_map_cache();
+        fn entity(id: &str) -> Entity {
+            Entity {
+                id: id.into(),
+                entity_type: "point".into(),
+                dis: id.into(),
+                parent_id: None,
+                tags: HashMap::new(),
+                refs: HashMap::new(),
+                created_ms: 0,
+                updated_ms: 0,
+            }
+        }
+        let mut e1 = entity("dev/p1");
+        e1.tags.insert("enum".into(), Some(r#"{"0":"OFF","1":"ON"}"#.into()));
+        let mut e2 = entity("dev/p2");
+        e2.tags.insert("enum".into(), Some("not-json".into()));
+        let e3 = entity("dev/p3");
+        rebuild_value_map_cache(&cache, &[e1, e2, e3]);
+        let guard = cache.read().unwrap();
+        assert_eq!(guard.len(), 1, "only e1 has a valid non-empty enum map");
+        assert!(guard.contains_key("dev/p1"));
+    }
+
+    #[test]
+    fn point_store_value_sink_uses_cache_for_canonical() {
+        use crate::store::point_store::{PointKey, PointStore};
+
+        let store = PointStore::new();
+        let cache = empty_value_map_cache();
+        cache.write().unwrap().insert(
+            "dev1/binary".to_string(),
+            ValueMap::from_json(r#"{"0":"OFF","1":"ON"}"#).unwrap(),
+        );
+
+        let mut norm = ProfileNormalizer::new();
+        norm.add_bacnet_mapping(7, "binary-input", 1, "dev1/binary");
+        let sink = PointStoreValueSink::new(Arc::new(norm), store.clone())
+            .with_value_maps(cache.clone());
+
+        let raw = RawProtocolValue::new(
+            "bacnet",
+            "7",
+            "binary-input-1",
+            serde_json::json!({
+                "device_instance": 7,
+                "object_type": "binary-input",
+                "object_instance": 1,
+                "value": 1,
+            }),
+        );
+        sink.on_value(raw);
+
+        let key = PointKey {
+            device_instance_id: "dev1".into(),
+            point_id: "binary".into(),
+        };
+        let stored = store.get(&key).expect("stored value");
+        assert_eq!(stored.canonical_value.as_deref(), Some("ON"));
+    }
+
+    #[test]
+    fn point_store_value_sink_no_cache_writes_raw_only() {
+        use crate::store::point_store::{PointKey, PointStore};
+
+        let store = PointStore::new();
+        let mut norm = ProfileNormalizer::new();
+        norm.add_bacnet_mapping(7, "binary-input", 1, "dev1/binary");
+        let sink = PointStoreValueSink::new(Arc::new(norm), store.clone());
+
+        let raw = RawProtocolValue::new(
+            "bacnet",
+            "7",
+            "binary-input-1",
+            serde_json::json!({
+                "device_instance": 7,
+                "object_type": "binary-input",
+                "object_instance": 1,
+                "value": 1,
+            }),
+        );
+        sink.on_value(raw);
+
+        let key = PointKey {
+            device_instance_id: "dev1".into(),
+            point_id: "binary".into(),
+        };
+        let stored = store.get(&key).expect("stored value");
+        assert!(stored.canonical_value.is_none());
     }
 }
