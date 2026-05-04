@@ -70,6 +70,12 @@ See [CHANGELOG.md](CHANGELOG.md) for the v0.2.0 boundary trim and
 
 ## Documentation
 
+- [docs/api-integration.md](docs/api-integration.md) — **consumer
+  integration guide** (REST + WebSocket reference, auth, DTOs, error
+  model, recommended UI flow). Start here when building an app that
+  talks to bms-store.
+- [docs/v1-criteria.md](docs/v1-criteria.md) — locked v1.0 scope and
+  done criteria
 - [CHANGELOG.md](CHANGELOG.md) — release notes (v0.2.0 → current)
 - [crates/bms-store-gui/README.md](crates/bms-store-gui/README.md) — GUI run/architecture
 - [crates/bms-haystack/README.md](crates/bms-haystack/README.md) — tagging
