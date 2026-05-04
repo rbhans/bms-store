@@ -1,8 +1,10 @@
-use std::collections::HashMap;
-
 use axum::extract::{Path, Query, State};
 use axum::Json;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+
+use bms_store_domain::nodes::{
+    CreateNodeRequest, NodeCapabilitiesResponse, NodeResponse, SetTagsRequest, UpdateNodeRequest,
+};
 
 use crate::api::auth::{require_permission, AuthUser};
 use crate::api::error::ApiError;
@@ -13,30 +15,6 @@ use crate::node::{Node, NodeCapabilities, NodeType};
 use crate::store::audit_store::{AuditAction, AuditEntryBuilder};
 use crate::store::node_store::NodeRecord;
 
-#[derive(Serialize)]
-pub struct NodeResponse {
-    pub id: String,
-    pub node_type: String,
-    pub dis: String,
-    pub parent_id: Option<String>,
-    pub tags: HashMap<String, Option<String>>,
-    pub refs: HashMap<String, String>,
-    pub properties: HashMap<String, String>,
-    pub capabilities: CapabilitiesResponse,
-    pub binding: Option<serde_json::Value>,
-    pub created_ms: i64,
-    pub updated_ms: i64,
-}
-
-#[derive(Serialize)]
-pub struct CapabilitiesResponse {
-    pub readable: bool,
-    pub writable: bool,
-    pub historizable: bool,
-    pub alarmable: bool,
-    pub schedulable: bool,
-}
-
 fn record_to_response(r: NodeRecord) -> NodeResponse {
     NodeResponse {
         id: r.id,
@@ -46,7 +24,7 @@ fn record_to_response(r: NodeRecord) -> NodeResponse {
         tags: r.tags,
         refs: r.refs,
         properties: r.properties,
-        capabilities: CapabilitiesResponse {
+        capabilities: NodeCapabilitiesResponse {
             readable: r.capabilities.readable,
             writable: r.capabilities.writable,
             historizable: r.capabilities.historizable,
@@ -94,15 +72,6 @@ pub async fn get_node(
 ) -> Result<Json<NodeResponse>, ApiError> {
     let record = state.node_store.get_node(&id).await?;
     Ok(Json(record_to_response(record)))
-}
-
-#[derive(Deserialize)]
-pub struct CreateNodeRequest {
-    pub id: String,
-    pub node_type: String,
-    pub dis: String,
-    pub parent_id: Option<String>,
-    pub tags: Option<Vec<(String, Option<String>)>>,
 }
 
 /// POST /api/nodes
@@ -184,11 +153,6 @@ pub async fn delete_node(
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
-#[derive(Deserialize)]
-pub struct SetTagsRequest {
-    pub tags: Vec<(String, Option<String>)>,
-}
-
 /// PUT /api/nodes/:id/tags
 pub async fn set_tags(
     State(state): State<ApiState>,
@@ -214,12 +178,6 @@ pub async fn set_tags(
         .await;
 
     Ok(Json(serde_json::json!({"ok": true})))
-}
-
-#[derive(Deserialize)]
-pub struct UpdateNodeRequest {
-    pub dis: Option<String>,
-    pub parent_id: Option<String>,
 }
 
 /// PUT /api/nodes/:id
