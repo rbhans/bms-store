@@ -505,6 +505,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "bms-store-alarms"
+version = "0.1.0"
+dependencies = [
+ "bms-core",
+ "bms-store-domain",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "utoipa",
+]
+
+[[package]]
 name = "bms-store-bridges"
 version = "0.1.0"
 dependencies = [

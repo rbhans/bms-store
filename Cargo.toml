@@ -9,6 +9,7 @@ members = [
     "crates/bms-store-server",
     "crates/bms-store-client",
     "crates/bms-store-gui",
+    "crates/bms-store-alarms",
 ]
 resolver = "2"
 
