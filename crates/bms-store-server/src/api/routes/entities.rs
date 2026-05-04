@@ -14,6 +14,7 @@ use axum::response::IntoResponse;
 use axum::{Json, response::Response};
 use serde::{Deserialize, Serialize};
 
+use bms_store_domain::entities::{EntityResponse, ListEntitiesQuery};
 use bms_store_storage::auth::Permission;
 use bms_store_storage::haystack::filter::{parse_filter, matches as filter_matches};
 use bms_store_storage::store::entity_store::{Entity, EntityError};
@@ -23,22 +24,6 @@ use crate::api::ApiState;
 use crate::store::relationships::{
     find_referrers, walk_supply_chain, walk_return_chain, validate_relationships, RelationshipIssue,
 };
-
-// ---------------------------------------------------------------------------
-// Response types
-// ---------------------------------------------------------------------------
-
-#[derive(Serialize)]
-pub struct EntityResponse {
-    pub id: String,
-    pub entity_type: String,
-    pub dis: String,
-    pub parent_id: Option<String>,
-    pub tags: std::collections::HashMap<String, Option<String>>,
-    pub refs: std::collections::HashMap<String, String>,
-    pub created_ms: i64,
-    pub updated_ms: i64,
-}
 
 fn entity_to_response(e: Entity) -> EntityResponse {
     EntityResponse {
@@ -56,21 +41,6 @@ fn entity_to_response(e: Entity) -> EntityResponse {
 // ---------------------------------------------------------------------------
 // GET /api/entities  (with optional ?filter= Haystack filter)
 // ---------------------------------------------------------------------------
-
-#[derive(Deserialize)]
-pub struct ListEntitiesQuery {
-    /// Haystack-4 filter expression.  If absent or empty, all entities are returned.
-    pub filter: Option<String>,
-    /// Limit result set size (default 1000).
-    #[serde(default = "default_limit")]
-    pub limit: usize,
-    /// Entity type filter (independent of haystack filter).
-    pub entity_type: Option<String>,
-}
-
-fn default_limit() -> usize {
-    1000
-}
 
 /// GET /api/entities — list entities, optionally filtered by a Haystack-4 filter.
 pub async fn list_entities(

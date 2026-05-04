@@ -2,38 +2,13 @@ use axum::extract::{Path, Query, State};
 use axum::http::header;
 use axum::response::IntoResponse;
 use axum::Json;
-use serde::{Deserialize, Serialize};
+
+use bms_store_domain::history::{HistoryQueryParams, HistoryResponse, SampleResponse, TimeRangeResponse};
 
 use crate::api::auth::AuthUser;
 use crate::api::error::ApiError;
 use crate::api::ApiState;
 use crate::store::history_store::HistoryQuery;
-
-#[derive(Deserialize)]
-pub struct HistoryQueryParams {
-    pub start_ms: Option<i64>,
-    pub end_ms: Option<i64>,
-    pub from: Option<i64>,
-    pub to: Option<i64>,
-    pub cursor: Option<i64>,
-    pub limit: Option<i64>,
-    pub max_results: Option<i64>,
-}
-
-#[derive(Serialize)]
-pub struct HistoryResponse {
-    pub device_id: String,
-    pub point_id: String,
-    pub samples: Vec<SampleResponse>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<i64>,
-}
-
-#[derive(Serialize)]
-pub struct SampleResponse {
-    pub timestamp_ms: i64,
-    pub value: f64,
-}
 
 /// GET /api/history/:device_id/:point_id
 pub async fn query_history(
@@ -82,14 +57,6 @@ pub async fn query_history(
             .collect(),
         next_cursor,
     }))
-}
-
-#[derive(Serialize)]
-pub struct TimeRangeResponse {
-    pub device_id: String,
-    pub point_id: String,
-    pub start_ms: Option<i64>,
-    pub end_ms: Option<i64>,
 }
 
 /// GET /api/history/:device_id/:point_id/range

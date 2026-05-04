@@ -8,6 +8,9 @@
 //! Modules group DTOs by API surface:
 //!
 //! - [`points`] — point reads (latest value), writes, status flags
+//! - [`entities`] — Site/Building/Floor/Space/Equip/Point entities,
+//!   tag/ref graph, Haystack-filter queries
+//! - [`history`] — time-series sample queries for one point
 //! - … more lifted incrementally as routes are migrated to typed DTOs
 //!
 //! Re-exports from `bms-core` are available under [`core`] for
@@ -15,4 +18,6 @@
 
 pub use bms_core as core;
 
+pub mod entities;
+pub mod history;
 pub mod points;
