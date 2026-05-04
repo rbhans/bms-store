@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
+mod bench;
 mod selftest;
 
 #[tokio::main]
@@ -19,6 +20,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(()) => Ok(()),
             Err(stage) => {
                 eprintln!("[selftest] FAILED: {stage}");
+                std::process::exit(1);
+            }
+        };
+    }
+
+    // --bench runs the in-process perf harness (item C.5 in v1-criteria).
+    if std::env::args().any(|a| a == "--bench") {
+        return match bench::run().await {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                eprintln!("[bench] FAILED: {e}");
                 std::process::exit(1);
             }
         };
