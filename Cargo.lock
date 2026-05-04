@@ -662,6 +662,7 @@ dependencies = [
  "bms-store-bridges",
  "bms-store-server",
  "bms-store-storage",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",

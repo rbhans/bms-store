@@ -1,6 +1,8 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
+mod selftest;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
@@ -10,6 +12,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }),
         )
         .init();
+
+    // --selftest exits 0 on full pass; non-zero on first failed stage.
+    if std::env::args().any(|a| a == "--selftest") {
+        return match selftest::run().await {
+            Ok(()) => Ok(()),
+            Err(stage) => {
+                eprintln!("[selftest] FAILED: {stage}");
+                std::process::exit(1);
+            }
+        };
+    }
 
     let addr = std::env::var("BMS_STORE_ADDR")
         .ok()

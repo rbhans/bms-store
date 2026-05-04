@@ -23,6 +23,7 @@ license = "MIT OR Apache-2.0"
 bms-store-storage = { path = "crates/bms-store-storage" }
 bms-store-bridges = { path = "crates/bms-store-bridges" }
 bms-store-server = { path = "crates/bms-store-server" }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
