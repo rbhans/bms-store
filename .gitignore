@@ -1,2 +1,4 @@
 /target/
 /demo-data/data/
+/.claude/scheduled_tasks.lock
+/.claude/settings.local.json
